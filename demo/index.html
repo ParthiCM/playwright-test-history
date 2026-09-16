@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playwright Test Triage — project walkthrough</title>
+<style>
+  :root {
+    --bg: #F7F8FA; --surface: #FFFFFF; --surface-2: #EFF1F5;
+    --ink: #14181F; --ink-2: #4A5262; --ink-3: #6E7787;
+    --line: #DFE3EA; --line-strong: #C6CDD8;
+    --accent: #4338CA; --accent-soft: #E8E6FB;
+    --crit: #B42318; --crit-soft: #FBE9E7;
+    --warn: #B54708; --ok: #067647; --ok-soft: #E3F2EA;
+    --shell: #111827;
+    --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D1117; --surface: #151A21; --surface-2: #1C222B;
+      --ink: #E6EAF0; --ink-2: #A2ACBC; --ink-3: #798393;
+      --line: #262D38; --line-strong: #364050;
+      --accent: #8B87F5; --accent-soft: #211F3D;
+      --crit: #F97066; --crit-soft: #2E1A18;
+      --warn: #F79009; --ok: #47CD89; --ok-soft: #12291F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0D1117; --surface: #151A21; --surface-2: #1C222B;
+    --ink: #E6EAF0; --ink-2: #A2ACBC; --ink-3: #798393;
+    --line: #262D38; --line-strong: #364050;
+    --accent: #8B87F5; --accent-soft: #211F3D;
+    --crit: #F97066; --crit-soft: #2E1A18;
+    --warn: #F79009; --ok: #47CD89; --ok-soft: #12291F;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--font-sans); font-size: 16.5px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 22px; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; letter-spacing: -0.02em; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); }
+  code {
+    font-family: var(--font-mono); font-size: 0.88em; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+  }
+
+  /* ---------- hero ---------- */
+  .hero { background: var(--shell); color: #fff; border-bottom: 3px solid var(--accent); padding: 64px 0 56px; }
+  .hero .eyebrow { color: #A5B4FC; }
+  .hero h1 { font-size: clamp(32px, 6vw, 54px); margin: 14px 0 16px; }
+  .hero p.lede { font-size: clamp(17px, 2.4vw, 21px); color: #C3CBD9; max-width: 62ch; margin-bottom: 26px; }
+  .hero .badges { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; }
+  .badge {
+    font-family: var(--font-mono); font-size: 11px; padding: 4px 9px; border-radius: 4px;
+    background: rgba(255,255,255,0.09); color: #C3CBD9; border: 1px solid rgba(255,255,255,0.14);
+  }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+    font-size: 15px; font-weight: 600; padding: 11px 20px; border-radius: 7px;
+    border: 1px solid transparent; transition: transform 0.12s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.ghost { background: transparent; color: #E6EAF0; border-color: rgba(255,255,255,0.28); }
+  .logo { display: flex; align-items: center; gap: 11px; }
+  .logo span { font-family: var(--font-mono); font-size: 12px; color: #9AA5B8; letter-spacing: 0.08em; }
+
+  /* ---------- sections ---------- */
+  section { padding: 56px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: none; }
+  section h2 { font-size: clamp(23px, 3.4vw, 31px); margin: 10px 0 16px; }
+  .sub { color: var(--ink-2); max-width: 68ch; }
+
+  .qs { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 26px; }
+  .q {
+    background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--crit);
+    border-radius: 7px; padding: 16px 18px;
+  }
+  .q b { display: block; font-size: 15.5px; margin-bottom: 5px; }
+  .q span { font-size: 13.5px; color: var(--ink-3); }
+
+  /* ---------- interactive triage ---------- */
+  .demo {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; margin-top: 26px;
+  }
+  .demo .bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+  }
+  .demo .bar .t { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3);
+                  text-transform: uppercase; letter-spacing: 0.1em; }
+  .toggle { display: flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; margin-left: auto; }
+  .toggle button {
+    font-family: var(--font-mono); font-size: 12px; padding: 6px 13px; cursor: pointer;
+    background: var(--surface); color: var(--ink-2); border: none;
+  }
+  .toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .demo .body { padding: 6px 0; min-height: 340px; }
+  .frow {
+    display: flex; align-items: center; gap: 12px; padding: 7px 18px;
+    font-family: var(--font-mono); font-size: 12.5px; border-bottom: 1px solid var(--line);
+  }
+  .frow:last-child { border-bottom: none; }
+  .frow .dot { width: 9px; height: 9px; border-radius: 2px; background: var(--crit); flex: none; }
+  .frow .id { color: var(--ink); min-width: 92px; }
+  .frow .msg { color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grp { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: flex-start; }
+  .grp:last-child { border-bottom: none; }
+  .grp.lead { background: var(--crit-soft); }
+  .grp .cnt {
+    font-family: var(--font-mono); font-size: 21px; font-weight: 700; color: var(--crit);
+    min-width: 34px; text-align: right; line-height: 1.3;
+  }
+  .grp .d { min-width: 0; }
+  .grp .e { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
+  .grp .l { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+  .grp .ids { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); margin-top: 7px; }
+  .verdict {
+    padding: 14px 18px; background: var(--surface-2); font-size: 14.5px; color: var(--ink-2);
+    border-top: 1px solid var(--line);
+  }
+  .verdict b { color: var(--ink); }
+
+  /* ---------- shapes ---------- */
+  .shapes { display: grid; grid-template-columns: 220px 1fr; gap: 20px; margin-top: 26px; align-items: start; }
+  .shapelist { display: flex; flex-direction: column; gap: 6px; }
+  .shapelist button {
+    text-align: left; font-family: var(--font-mono); font-size: 12.5px; cursor: pointer;
+    padding: 9px 12px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink-2);
+  }
+  .shapelist button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .shapeview { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .strip { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 16px; }
+  .strip i {
+    width: 26px; height: 26px; border-radius: 4px; display: inline-block; position: relative;
+  }
+  .strip i.P { background: color-mix(in srgb, var(--ok) 62%, transparent); }
+  .strip i.F { background: color-mix(in srgb, var(--crit) 78%, transparent); }
+  .strip i.x { background: transparent; border: 1px dashed var(--line-strong); }
+  .shapeview h3 { font-size: 17px; margin-bottom: 7px; }
+  .shapeview p { color: var(--ink-2); font-size: 14.5px; margin: 0; }
+
+  /* ---------- architecture ---------- */
+  .arch { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 26px 22px; margin-top: 24px; overflow-x: auto; }
+  .arch svg { display: block; margin: 0 auto; min-width: 560px; }
+  .arch .node { cursor: pointer; }
+  .arch .node rect { transition: all 0.15s ease; }
+  .arch .node:hover rect, .arch .node[data-on="1"] rect { stroke: var(--accent); stroke-width: 2; }
+  .archnote {
+    margin-top: 18px; padding: 14px 16px; background: var(--surface-2);
+    border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
+    font-size: 14.5px; color: var(--ink-2); min-height: 74px;
+  }
+  .archnote b { color: var(--ink); }
+
+  /* ---------- decisions ---------- */
+  .dec { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin-top: 12px; }
+  .dec summary {
+    cursor: pointer; list-style: none; padding: 15px 18px; display: flex; gap: 11px; align-items: baseline;
+  }
+  .dec summary::-webkit-details-marker { display: none; }
+  .dec summary::before { content: "\25B8"; color: var(--ink-3); font-size: 11px; transition: transform 0.15s ease; }
+  .dec[open] summary::before { transform: rotate(90deg); }
+  .dec summary b { font-size: 16px; }
+  .dec .inner { padding: 0 18px 18px 41px; color: var(--ink-2); font-size: 15px; }
+  .dec .inner p:last-child { margin-bottom: 0; }
+  .tradeoff {
+    margin-top: 12px; padding: 11px 14px; border: 1px dashed var(--line-strong);
+    border-radius: 6px; font-size: 14px; color: var(--ink-3);
+  }
+  .tradeoff b { color: var(--warn); }
+
+  .callout {
+    background: var(--crit-soft); border: 1px solid color-mix(in srgb, var(--crit) 32%, transparent);
+    border-radius: 10px; padding: 24px 26px; margin-top: 24px;
+  }
+  .callout h3 { font-size: 19px; margin-bottom: 10px; }
+  .callout p { color: var(--ink-2); font-size: 15px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .files {
+    font-family: var(--font-mono); font-size: 13px; line-height: 1.85; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; margin-top: 22px;
+    overflow-x: auto; white-space: pre; color: var(--ink-2);
+  }
+  .files b { color: var(--ink); font-weight: 600; }
+  .files span { color: var(--ink-3); }
+
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-top: 26px; }
+  .metric { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  .metric .n { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; display: block; }
+  .metric .k { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase;
+               letter-spacing: 0.1em; color: var(--ink-3); }
+
+  footer.pg {
+    background: var(--shell); color: #9AA5B8; padding: 34px 0; margin-top: 0;
+    font-family: var(--font-mono); font-size: 12px;
+  }
+  footer.pg .wrap { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  footer.pg a { color: #C7D2FE; }
+
+  @media (max-width: 720px) {
+    .shapes { grid-template-columns: 1fr; }
+    .toggle { margin-left: 0; width: 100%; }
+    .toggle button { flex: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="logo">
+      <svg width="30" height="30" viewBox="0 0 26 26" aria-hidden="true">
+        <rect x="1" y="1" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="9.75" y="1" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="18.5" y="1" width="6.5" height="6.5" rx="1.5" fill="#F87171"/>
+        <rect x="1" y="9.75" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="9.75" y="9.75" width="6.5" height="6.5" rx="1.5" fill="#F87171"/>
+        <rect x="18.5" y="9.75" width="6.5" height="6.5" rx="1.5" fill="#F87171"/>
+        <rect x="1" y="18.5" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="9.75" y="18.5" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="18.5" y="18.5" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+      </svg>
+      <span>PLAYWRIGHT TEST TRIAGE</span>
+    </div>
+    <h1>Your test history<br>outlives your build server.</h1>
+    <p class="lede">
+      Every per-build report dies when CI rotates the build. This one doesn&rsquo;t &mdash; and it
+      answers the question a wall of red tests never does: <em>how many problems is this, actually?</em>
+    </p>
+    <div class="badges">
+      <span class="badge">zero dependencies</span>
+      <span class="badge">43 unit tests</span>
+      <span class="badge">Node &ge; 18</span>
+      <span class="badge">~700 lines of logic</span>
+      <span class="badge">MIT</span>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="report.html">Open the live report &rarr;</a>
+      <a class="btn ghost" href="../README.md">Read the README</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section>
+    <div class="eyebrow">The problem</div>
+    <h2>The evidence is deleted before anyone asks for it</h2>
+    <p class="sub">
+      Jenkins rotates build records &mdash; most jobs keep a handful. Playwright&rsquo;s HTML report,
+      Allure and JUnit each show exactly <b>one build</b>. So the three questions a team actually
+      arrives with are all unanswerable by the time they are asked.
+    </p>
+    <div class="qs">
+      <div class="q"><b>&ldquo;Has TC-1042 ever passed?&rdquo;</b>
+        <span>Or has it been red since the day it was written and nobody noticed?</span></div>
+      <div class="q"><b>&ldquo;Did my fix actually work?&rdquo;</b>
+        <span>Or did that one run just get lucky on a flaky test?</span></div>
+      <div class="q"><b>&ldquo;Is this 26 problems, or 4?&rdquo;</b>
+        <span>Forty red tests could be one broken selector. Nothing distinguishes them.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Interactive</div>
+    <h2>Ten red tests, or four problems?</h2>
+    <p class="sub">
+      This is real output from build #114 of the demo history. Flip between how a standard report
+      shows it and how this one does.
+    </p>
+
+    <div class="demo">
+      <div class="bar">
+        <span class="t">build #114 &mdash; 10 failing</span>
+        <div class="toggle">
+          <button id="tRaw" aria-pressed="true">as a failure list</button>
+          <button id="tGrouped" aria-pressed="false">grouped by cause</button>
+        </div>
+      </div>
+      <div class="body" id="demoBody"></div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Interactive</div>
+    <h2>Read the shapes, not the numbers</h2>
+    <p class="sub">
+      One row per test, one column per build. Before reading a single figure, the silhouette of a row
+      already tells you which kind of problem you have &mdash; and they need completely different responses.
+    </p>
+    <div class="shapes">
+      <div class="shapelist" id="shapeList"></div>
+      <div class="shapeview">
+        <div class="strip" id="strip"></div>
+        <h3 id="shapeTitle"></h3>
+        <p id="shapeText"></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">How it works</div>
+    <h2>Four decisions carry the whole design</h2>
+    <p class="sub">Click any box in the pipeline.</p>
+
+    <div class="arch">
+      <svg viewBox="0 0 700 250" width="100%" height="250" role="img" aria-label="Pipeline diagram">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <g class="node" data-k="run">
+          <rect x="10" y="20" width="150" height="54" rx="7" fill="var(--surface-2)" stroke="var(--line-strong)"/>
+          <text x="85" y="43" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Playwright run</text>
+          <text x="85" y="61" text-anchor="middle" font-size="10.5" font-family="var(--font-mono)" fill="var(--ink-3)">results.xml</text>
+        </g>
+        <path d="M160,47 L205,47" stroke="var(--ink-3)" stroke-width="1.6" fill="none" marker-end="url(#ar)" color="var(--ink-3)"/>
+        <g class="node" data-k="script">
+          <rect x="210" y="20" width="160" height="54" rx="7" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="290" y="43" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">triage-report.js</text>
+          <text x="290" y="61" text-anchor="middle" font-size="10.5" font-family="var(--font-mono)" fill="var(--ink-3)">a shell step</text>
+        </g>
+        <path d="M290,74 L290,112" stroke="var(--ink-3)" stroke-width="1.6" fill="none" marker-end="url(#ar)" color="var(--ink-3)"/>
+        <g class="node" data-k="store">
+          <rect x="190" y="118" width="200" height="62" rx="7" fill="var(--ok-soft)" stroke="var(--ok)"/>
+          <text x="290" y="141" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">the store</text>
+          <text x="290" y="158" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">build-0142.json</text>
+          <text x="290" y="172" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">OUTSIDE the workspace</text>
+        </g>
+        <path d="M370,47 L425,47" stroke="var(--ink-3)" stroke-width="1.6" fill="none" marker-end="url(#ar)" color="var(--ink-3)"/>
+        <g class="node" data-k="html">
+          <rect x="430" y="20" width="160" height="54" rx="7" fill="var(--surface-2)" stroke="var(--line-strong)"/>
+          <text x="510" y="43" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">index.html</text>
+          <text x="510" y="61" text-anchor="middle" font-size="10.5" font-family="var(--font-mono)" fill="var(--ink-3)">self-contained</text>
+        </g>
+        <path d="M390,149 Q510,149 510,84" stroke="var(--ink-3)" stroke-width="1.6" fill="none" stroke-dasharray="4 3" marker-end="url(#ar)" color="var(--ink-3)"/>
+        <text x="470" y="178" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">reads all builds</text>
+        <g class="node" data-k="rot">
+          <rect x="10" y="118" width="150" height="62" rx="7" fill="var(--crit-soft)" stroke="var(--crit)" stroke-dasharray="5 3"/>
+          <text x="85" y="141" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)">build rotation</text>
+          <text x="85" y="158" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">deletes everything</text>
+          <text x="85" y="172" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--ink-3)">inside the build</text>
+        </g>
+        <path d="M160,149 L186,149" stroke="var(--crit)" stroke-width="1.6" fill="none" stroke-dasharray="3 3"/>
+        <text x="173" y="156" text-anchor="middle" font-size="19" font-weight="700" fill="var(--crit)">&#10007;</text>
+        <text x="200" y="212" text-anchor="start" font-size="11" font-family="var(--font-mono)" fill="var(--ink-3)">cannot reach the store &mdash; that is the whole idea</text>
+      </svg>
+      <div class="archnote" id="archNote"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Engineering notes</div>
+    <h2>Decisions and their costs</h2>
+    <p class="sub">Every one of these is a trade, not a free win.</p>
+
+    <details class="dec" open>
+      <summary><b>One immutable JSON file per build</b></summary>
+      <div class="inner">
+        <p>Not a growing database. Each build writes only its own file and never reads or rewrites
+        another&rsquo;s. That single constraint buys crash-safety, idempotency and concurrency-safety
+        without a line of locking code &mdash; a build that dies mid-write corrupts at most its own
+        file, and re-running build #142 replaces #142 and nothing else.</p>
+        <div class="tradeoff"><b>Cost:</b> reading the history means opening every file. At a few
+        thousand builds that becomes worth revisiting; at a few hundred it is instant.</div>
+      </div>
+    </details>
+
+    <details class="dec">
+      <summary><b>Parse the JUnit file, not the CI API</b></summary>
+      <div class="inner">
+        <p>An API-driven reporter can only see what the server still remembers &mdash; which puts you
+        straight back where you started. Reading the file on disk captures build #142&rsquo;s data
+        <em>at build #142</em>, and makes the tool work identically on GitHub Actions, GitLab CI or a
+        laptop.</p>
+        <div class="tradeoff"><b>Cost:</b> you must run it as a step inside the job. There is no way
+        to bolt it on from outside after the fact.</div>
+      </div>
+    </details>
+
+    <details class="dec">
+      <summary><b>Zero dependencies, including the XML parser</b></summary>
+      <div class="inner">
+        <p>The consumer is a shell step on a build agent someone else administers. Every dependency
+        is a thing that can fail to install, pull a CVE, or need a lockfile committed to a repo that
+        is about tests, not tooling.</p>
+        <div class="tradeoff"><b>Cost:</b> a regex-based XML reader rather than a real parser. Only
+        acceptable because the input shape is narrow and every assumption it makes is pinned down by
+        a test. If this had to accept arbitrary XML, the trade would be wrong.</div>
+      </div>
+    </details>
+
+    <details class="dec">
+      <summary><b>&mdash;init is opt-in, and must be removed</b></summary>
+      <div class="inner">
+        <p>A missing store directory is an error, not something to silently fix. If a job later runs
+        on an agent where the history volume is not mounted, auto-creating it would start an empty
+        history and nobody would notice until they went looking for a trend that no longer existed.</p>
+        <p>Failing loudly is the correct behaviour. <code>--init</code> is the one-time opt-in, and
+        the docs are blunt about taking it back out.</p>
+        <div class="tradeoff"><b>Cost:</b> one extra step during setup, and one more thing to explain.</div>
+      </div>
+    </details>
+
+    <details class="dec">
+      <summary><b>Environment chips carry a label, not just a colour</b></summary>
+      <div class="inner">
+        <p>Colour alone does not survive a greyscale print, a compressed screenshot pasted into chat,
+        or the roughly 8% of men who cannot separate orange from green &mdash; which is exactly the
+        staging/production pair. Each chip carries a four-letter cap as well as its colour.</p>
+        <div class="tradeoff"><b>Cost:</b> ~24px of row width, and a build column too narrow for a
+        chip needs a second, smaller treatment of the same information.</div>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <div class="eyebrow">The interesting bug</div>
+    <h2>A reporting bug that produces plausible output</h2>
+    <div class="callout">
+      <h3>Every failure became its own &ldquo;root cause&rdquo;</h3>
+      <p>An early version read the first <code>CDATA</code> block anywhere inside
+      <code>&lt;testcase&gt;</code>. On any suite that logs to stdout, that is
+      <code>&lt;system-out&gt;</code> &mdash; so every signature picked up a unique timestamp, every
+      group had exactly one member, and the cause table degenerated into one row per test.</p>
+      <p>The page still rendered. The table still had rows. It looked like it was working &mdash;
+      and it was <b>worse than useless</b>, because it appeared to be triaging while telling you
+      nothing at all.</p>
+      <p>The fix is three lines: scope the read to the <code>&lt;failure&gt;</code> element and skip
+      logger-formatted lines. The lesson is the part worth keeping &mdash; a reporting bug that
+      produces <em>plausible</em> output is far more dangerous than one that crashes, because
+      nothing prompts you to check it. That is most of why
+      <code>test/signature.test.js</code> exists, and why the report states inside the report that
+      its grouping is mechanical rather than diagnostic.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">The repository</div>
+    <h2>What&rsquo;s in it</h2>
+    <div class="files"><b>src/</b>
+  <b>triage-report.js</b>          <span>CLI: arguments, orchestration, exit codes</span>
+  <b>lib/junit.js</b>              <span>JUnit XML &rarr; test results</span>
+  <b>lib/signature.js</b>          <span>failure text &rarr; signature &rarr; clusters</span>
+  <b>lib/store.js</b>              <span>immutable store + the history matrix</span>
+  <b>lib/env.js</b>                <span>URL &rarr; environment name</span>
+  <b>template/</b>                 <span>the report UI</span>
+<b>test/</b>                       <span>43 unit tests, node:test, no runner</span>
+<b>tools/</b>
+  <b>generate-mock-history.js</b>  <span>fabricates a demo history</span>
+<b>jenkins/</b>
+  <b>execute-shell.sh</b>          <span>the build step, heavily commented</span>
+  <b>freestyle-config.xml</b>      <span>a complete job</span>
+  <b>Jenkinsfile</b>               <span>Pipeline equivalent</span>
+  <b>docker-compose.yml</b>        <span>local Jenkins to try it against</span>
+<b>docs/</b>
+  <b>architecture.md</b>           <span>why it is built this way</span>
+  <b>jenkins-setup.md</b>          <span>step by step</span>
+  <b>report-guide.md</b>           <span>how to read the report</span>
+  <b>troubleshooting.md</b>        <span>every failure that has actually happened</span></div>
+
+    <div class="metrics">
+      <div class="metric"><span class="n">43</span><span class="k">unit tests</span></div>
+      <div class="metric"><span class="n">0</span><span class="k">dependencies</span></div>
+      <div class="metric"><span class="n">~12 KB</span><span class="k">per build stored</span></div>
+      <div class="metric"><span class="n">4</span><span class="k">doc guides</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Try it</h2>
+    <p class="sub">No install. Fourteen builds of mock history, rendered by the real pipeline.</p>
+    <div class="files">git clone https://github.com/&lt;ParthiCM&gt;/playwright-test-triage.git
+cd playwright-test-triage
+npm run demo        <span># generate mock history and render the report</span>
+npm test            <span># 43 tests</span></div>
+    <div class="cta" style="margin-top:22px">
+      <a class="btn primary" href="report.html">Open the live report &rarr;</a>
+    </div>
+  </section>
+
+</div>
+
+<footer class="pg">
+  <div class="wrap">
+    <span>Playwright Test Triage &mdash; MIT &copy; Parthiban Murugan</span>
+    <span><a href="report.html">demo report</a> &middot; <a href="../docs/architecture.md">architecture</a> &middot; <a href="../README.md">readme</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- interactive triage: the same 10 failures, two ways ---------- */
+  var FAILURES = [
+    { id: "TC-1012", msg: "locator.click: Timeout 30000ms exceeded.", g: 1 },
+    { id: "TC-1016", msg: "locator.click: Timeout 30000ms exceeded.", g: 1 },
+    { id: "TC-1024", msg: "locator.waitFor: Timeout 20000ms exceeded.", g: 2 },
+    { id: "TC-1025", msg: "locator.waitFor: Timeout 20000ms exceeded.", g: 2 },
+    { id: "TC-1026", msg: "locator.waitFor: Timeout 20000ms exceeded.", g: 2 },
+    { id: "TC-1031", msg: "expect(received).toEqual(expected)", g: 0 },
+    { id: "TC-1034", msg: "locator.click: Timeout 30000ms exceeded.", g: 1 },
+    { id: "TC-1035", msg: "expect(received).toEqual(expected)", g: 0 },
+    { id: "TC-1036", msg: "expect(received).toEqual(expected)", g: 0 },
+    { id: "TC-1053", msg: "Error: Download did not start within 10000ms", g: 3 }
+  ];
+
+  // Note the escaped angle brackets: these strings go through innerHTML, and a
+  // bare <n> is parsed as an unknown element and silently dropped.
+  var GROUPS = [
+    { e: "expect(received).toEqual(expected)", l: "src/pages/cart.page.ts:64", ids: ["TC-1031", "TC-1035", "TC-1036"] },
+    { e: "locator.click: Timeout &lt;n&gt;ms exceeded.", l: "src/pages/search.page.ts:88", ids: ["TC-1012", "TC-1016", "TC-1034"] },
+    { e: "locator.waitFor: Timeout &lt;n&gt;ms exceeded.", l: "src/pages/product.page.ts:203", ids: ["TC-1024", "TC-1025", "TC-1026"] },
+    { e: "Error: Download did not start within &lt;n&gt;ms", l: "src/pages/account.page.ts:157", ids: ["TC-1053"] }
+  ];
+
+  var body = document.getElementById("demoBody");
+  var verdict = document.getElementById("verdict");
+  var bRaw = document.getElementById("tRaw");
+  var bGrp = document.getElementById("tGrouped");
+
+  function renderRaw() {
+    body.innerHTML = FAILURES.map(function (f) {
+      return '<div class="frow"><i class="dot"></i><span class="id">' + f.id +
+        '</span><span class="msg">' + f.msg + "</span></div>";
+    }).join("");
+    verdict.innerHTML = "Ten failures, ten lines. <b>Nothing here tells you whether that is ten " +
+      "investigations or two.</b> This is what a standard report gives you.";
+  }
+
+  function renderGrouped() {
+    body.innerHTML = GROUPS.map(function (g, i) {
+      return '<div class="grp' + (i === 0 ? " lead" : "") + '"><span class="cnt">' + g.ids.length +
+        '</span><div class="d"><div class="e">' + g.e + '</div><div class="l">' + g.l +
+        '</div><div class="ids">' + g.ids.join("  ·  ") + "</div></div></div>";
+    }).join("");
+    verdict.innerHTML = "The same ten failures are <b>four things to fix</b>, and each of the top " +
+      "three is one line in one page object. Fixing the first row clears three tests at once.";
+  }
+
+  bRaw.addEventListener("click", function () {
+    bRaw.setAttribute("aria-pressed", "true");
+    bGrp.setAttribute("aria-pressed", "false");
+    renderRaw();
+  });
+  bGrp.addEventListener("click", function () {
+    bGrp.setAttribute("aria-pressed", "true");
+    bRaw.setAttribute("aria-pressed", "false");
+    renderGrouped();
+  });
+  renderRaw();
+
+  /* ---------- shape explorer ---------- */
+  var SHAPES = [
+    {
+      k: "chronic", label: "solid red", seq: "FFFFFFFFFFFF",
+      title: "Chronically broken",
+      text: "Has never passed, not once. Usually nobody has ever looked at it — it failed the day " +
+            "it was written and became background noise. Zero flips is the giveaway: this is not flake, " +
+            "it is a test that has never worked."
+    },
+    {
+      k: "flaky", label: "alternating", seq: "PFPPFPFFPFPF",
+      title: "Flaky",
+      text: "Flips repeatedly with no pattern. The product is usually fine; the test is not. Chasing " +
+            "the application here wastes a day — the row is telling you to rewrite the test. " +
+            "Two or more flips is the working definition."
+    },
+    {
+      k: "fixed", label: "red to green", seq: "FFFFFFFPPPPP",
+      title: "A fix landed",
+      text: "The column where it turns is the exact build that fixed it. When six rows turn green in " +
+            "the same column, that build fixed one shared cause — which is precisely what the " +
+            "root-cause table was telling you before the fix."
+    },
+    {
+      k: "regression", label: "green to red", seq: "PPPPPPPPPFFF",
+      title: "A regression",
+      text: "The column where it turns is the build that broke it. The <code>since</code> value gives " +
+            "you that build number directly, which is where to start in the commit history."
+    },
+    {
+      k: "added", label: "dashed then live", seq: "xxxxxPPPPPFF",
+      title: "Added mid-history",
+      text: "Dashed cells mean the test did not exist in that build. A test that was <em>absent</em> " +
+            "is not a test that <em>passed</em> — conflating those is how a report quietly lies " +
+            "about coverage."
+    }
+  ];
+
+  var list = document.getElementById("shapeList");
+  var strip = document.getElementById("strip");
+  var sTitle = document.getElementById("shapeTitle");
+  var sText = document.getElementById("shapeText");
+
+  list.innerHTML = SHAPES.map(function (s, i) {
+    return '<button data-i="' + i + '" aria-pressed="' + (i === 0) + '">' + s.label + "</button>";
+  }).join("");
+
+  function showShape(i) {
+    var s = SHAPES[i];
+    strip.innerHTML = s.seq.split("").map(function (c) { return '<i class="' + c + '"></i>'; }).join("");
+    sTitle.textContent = s.title;
+    sText.innerHTML = s.text;
+    list.querySelectorAll("button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(Number(b.dataset.i) === i));
+    });
+  }
+  list.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-i]");
+    if (btn) showShape(Number(btn.dataset.i));
+  });
+  showShape(0);
+
+  /* ---------- architecture notes ---------- */
+  var NOTES = {
+    run: "<b>Your suite, unchanged.</b> Playwright's JUnit reporter already writes " +
+         "<code>results.xml</code> on every run. Nothing about how the tests execute changes — " +
+         "this reads a file that is being produced today and thrown away tomorrow.",
+    script: "<b>A post-test shell step.</b> Zero dependencies, so there is nothing to install on the " +
+            "build agent. It parses the JUnit file, appends one record, reads the whole history back " +
+            "and renders the page. Roughly 700 lines of logic.",
+    store: "<b>The idea the whole project rests on.</b> One immutable JSON file per build, in a " +
+           "directory the CI server does not own. Build rotation and workspace cleanup cannot reach " +
+           "it. ~12 KB per build — a thousand builds is a few megabytes.",
+    html: "<b>One self-contained page.</b> No server, no database, no build step. The HTML Publisher " +
+          "plugin serves it as a link in the job sidebar, and it works just as well opened from disk.",
+    rot: "<b>The thing being defeated.</b> Jenkins deletes old build records, and every per-build " +
+         "report goes with them. Anything stored <em>inside</em> the build is on a timer. That is why " +
+         "the store sits outside it."
+  };
+
+  var archNote = document.getElementById("archNote");
+  archNote.innerHTML = NOTES.store;
+  document.querySelector('.node[data-k="store"]').setAttribute("data-on", "1");
+
+  document.querySelectorAll(".arch .node").forEach(function (node) {
+    node.addEventListener("click", function () {
+      document.querySelectorAll(".arch .node").forEach(function (n) { n.removeAttribute("data-on"); });
+      node.setAttribute("data-on", "1");
+      archNote.innerHTML = NOTES[node.dataset.k] || "";
+    });
+  });
+})();
+</script>
+</body>
+</html>

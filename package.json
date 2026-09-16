@@ -30,7 +30,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/<YOUR-GITHUB-USERNAME>/playwright-test-triage.git"
+    "url": "https://github.com/ParthiCM/playwright-test-triage.git"
   },
   "files": [
     "src/",

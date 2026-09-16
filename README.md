@@ -82,7 +82,7 @@ orange from green.
 No install, no dependencies. Node 18+.
 
 ```bash
-git clone https://github.com/<YOUR-GITHUB-USERNAME>/playwright-test-triage.git
+git clone https://github.com/<ParthiCM>/playwright-test-triage.git
 cd playwright-test-triage
 
 npm run demo        # generate 14 builds of mock history and render the report

@@ -1,0 +1,92 @@
+// ---------------------------------------------------------------------------
+// Declarative Pipeline equivalent of the Freestyle setup.
+//
+// The only two things that matter for the history report:
+//   1. The store lives OUTSIDE the workspace, so `deleteDir()` and build
+//      rotation cannot touch it.
+//   2. The report step runs in `post { always { ... } }`, so a failing suite
+//      still gets recorded. A report that only appears when the tests pass is
+//      a report you will never need.
+// ---------------------------------------------------------------------------
+
+pipeline {
+  agent any
+
+  parameters {
+    string(
+      name: 'BASE_URL',
+      defaultValue: 'https://staging.acme-shop.test',
+      description: 'Environment the suite runs against. Shown as a coloured chip in the report.'
+    )
+    string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build')
+  }
+
+  environment {
+    // Outside the workspace. This is the whole point - see docs/architecture.md.
+    TRIAGE_STORE = '/var/jenkins_home/ci-data/triage/acme-shop-e2e'
+  }
+
+  options {
+    // The history store survives rotation, but console logs and per-build
+    // reports do not. Keeping ~30 means a report that points at build #312
+    // still has a log you can open.
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+    timestamps()
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scmGit(
+          branches: [[name: "*/${params.BRANCH_NAME}"]],
+          userRemoteConfigs: [[url: 'https://github.com/acme/shop-e2e.git']]
+        )
+      }
+    }
+
+    stage('Install') {
+      steps {
+        sh 'npm ci'
+        sh 'npx playwright install --with-deps chromium'
+      }
+    }
+
+    stage('Test') {
+      steps {
+        // Never let a red suite abort the pipeline before the report is built.
+        sh(script: 'npx playwright test --project=chrome', returnStatus: true)
+          .with { status -> env.TEST_STATUS = "${status}" }
+      }
+    }
+  }
+
+  post {
+    always {
+      // One line. Line continuations inside a Jenkins sh block are a reliable
+      // source of "command not found" once somebody edits them in the UI.
+      sh """
+        node tools/triage/triage-report.js --junit playwright-report/results.xml --build "\${BUILD_NUMBER}" --branch "${params.BRANCH_NAME}" --env "${params.BASE_URL}" --url "\${BUILD_URL}" --job "acme-shop-e2e" --store "\${TRIAGE_STORE}" --out triage-report/index.html
+      """
+
+      publishHTML(target: [
+        reportName           : 'Test History',
+        reportDir            : 'triage-report',
+        reportFiles          : 'index.html',
+        keepAll              : false,
+        alwaysLinkToLastBuild: false,
+        // Tick this. If the suite dies before writing results.xml the folder
+        // may not exist, and without it the whole build fails on a missing
+        // report - hiding the actual failure behind a reporting error.
+        allowMissing         : true
+      ])
+
+      junit testResults: 'playwright-report/results.xml', allowEmptyResults: true
+
+      script {
+        if (env.TEST_STATUS != '0') {
+          currentBuild.result = 'UNSTABLE'
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,156 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<!--
+  A complete Freestyle job showing where the history report fits.
+
+  To use it:
+    java -jar jenkins-cli.jar -s http://localhost:8080/ create-job acme-shop-e2e < freestyle-config.xml
+
+  Or copy the two marked sections into an existing job's config.
+
+  Everything here is fictional - acme-shop.test, the repo URL and the paths are
+  placeholders. Replace them before use.
+-->
+<project>
+  <description>Playwright end-to-end suite for Acme Shop, with cross-build test history.</description>
+  <keepDependencies>false</keepDependencies>
+
+  <properties>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>-1</daysToKeep>
+        <!--
+          The history store is immune to rotation, but console logs and Allure
+          reports are not. Keeping only a handful means the report can point at
+          a build whose log no longer exists. 30 is a reasonable floor.
+        -->
+        <numToKeep>30</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>BASE_URL</name>
+          <description>Environment to run against.
+dev:     https://dev.acme-shop.test
+staging: https://staging.acme-shop.test
+prod:    https://acme-shop.test</description>
+          <defaultValue>https://staging.acme-shop.test</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>BRANCH_NAME</name>
+          <description>Branch to build.</description>
+          <defaultValue>main</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>RERUN_FAILED_ONLY</name>
+          <description>Re-run only the tests that failed last time. The history report is skipped on these runs, because a partial result set would look like every other test disappeared from the suite.</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+
+  <scm class="hudson.plugins.git.GitSCM" plugin="git">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>https://github.com/acme/shop-e2e.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/$BRANCH_NAME</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <extensions/>
+  </scm>
+
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <concurrentBuild>false</concurrentBuild>
+
+  <builders>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash
+
+npm ci
+npx playwright install --with-deps chromium
+
+# ---- SECTION 1 of 2 ------------------------------------------------------
+# Only needed if this job does NOT use the Workspace Cleanup plugin. Without
+# it, a run that dies before writing results.xml leaves the previous build's
+# files behind and the report records stale results as this build's.
+rm -rf ./playwright-report/* ./triage-report
+# --------------------------------------------------------------------------
+
+npx playwright test --project=chrome
+EXIT_STATUS=$?
+
+# ---- SECTION 2 of 2 ------------------------------------------------------
+# Cross-build test history report.
+#
+# Deliberately one line: backslash continuations are the most common way this
+# breaks after somebody edits it in the Jenkins UI.
+#
+# --init is NOT here. Add it for the very first run to create the store, then
+# take it straight back out - see docs/jenkins-setup.md, step 5.
+if [ "${RERUN_FAILED_ONLY}" = "true" ]; then
+    echo "Partial run - skipping the history report."
+else
+    node tools/triage/triage-report.js --junit playwright-report/results.xml --build "$BUILD_NUMBER" --branch "$BRANCH_NAME" --env "$BASE_URL" --url "$BUILD_URL" --job "acme-shop-e2e" --store /var/jenkins_home/ci-data/triage/acme-shop-e2e --out triage-report/index.html
+fi
+# --------------------------------------------------------------------------
+
+exit $EXIT_STATUS</command>
+    </hudson.tasks.Shell>
+  </builders>
+
+  <publishers>
+    <htmlpublisher.HtmlPublisher plugin="htmlpublisher">
+      <reportTargets>
+        <htmlpublisher.HtmlPublisherTarget>
+          <!--
+            reportName is the SIDEBAR LINK LABEL. The separate "reportTitles"
+            field only sets the browser tab title inside the report. Putting
+            your name in the wrong one leaves two sidebar entries both called
+            "HTML Report" and no obvious way to tell them apart.
+          -->
+          <reportName>Test History</reportName>
+          <reportDir>triage-report</reportDir>
+          <reportFiles>index.html</reportFiles>
+          <reportTitles></reportTitles>
+          <keepAll>false</keepAll>
+          <alwaysLinkToLastBuild>false</alwaysLinkToLastBuild>
+          <!--
+            Must be true. If the suite dies before producing results.xml the
+            directory may not exist, and without this the whole build fails on
+            a missing report - burying the real failure.
+          -->
+          <allowMissing>true</allowMissing>
+          <!-- Optional sidebar icon, e.g. symbol-stats-chart-outline plugin-ionicons-api -->
+          <icon></icon>
+          <includes>**/*</includes>
+          <escapeUnderscores>true</escapeUnderscores>
+          <useWrapperFileDirectly>true</useWrapperFileDirectly>
+        </htmlpublisher.HtmlPublisherTarget>
+      </reportTargets>
+    </htmlpublisher.HtmlPublisher>
+
+    <hudson.tasks.junit.JUnitResultArchiver plugin="junit">
+      <testResults>playwright-report/results.xml</testResults>
+      <allowEmptyResults>true</allowEmptyResults>
+      <skipMarkingBuildUnstable>false</skipMarkingBuildUnstable>
+    </hudson.tasks.junit.JUnitResultArchiver>
+  </publishers>
+
+  <buildWrappers>
+    <jenkins.plugins.nodejs.NodeJSBuildWrapper plugin="nodejs">
+      <nodeJSInstallationName>node-lts</nodeJSInstallationName>
+    </jenkins.plugins.nodejs.NodeJSBuildWrapper>
+  </buildWrappers>
+</project>

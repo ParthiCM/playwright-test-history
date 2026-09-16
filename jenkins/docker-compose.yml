@@ -1,0 +1,36 @@
+# Local Jenkins for trying this out end to end.
+#
+#   cd jenkins && docker compose up -d
+#   docker compose logs jenkins | grep -A2 "initialAdminPassword"
+#   open http://localhost:8080
+#
+# The point of this file is the SECOND volume. `jenkins_home` holds the Jenkins
+# installation; `ci_data` holds the build-history store, mounted separately at
+# /var/jenkins_home/ci-data.
+#
+# They are separate on purpose. The store has a different lifecycle from
+# Jenkins itself: you want to be able to wipe, upgrade or rebuild the Jenkins
+# container without losing years of test history. Splitting the volume is what
+# makes that safe, and it is also what makes the store easy to back up on its
+# own.
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: triage-demo-jenkins
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      # Skip the setup wizard; plugins are installed from plugins.txt instead.
+      JAVA_OPTS: -Djenkins.install.runSetupWizard=false
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - ci_data:/var/jenkins_home/ci-data
+      # Handy while experimenting: the repo is visible inside the container.
+      - ../:/workspace:ro
+
+volumes:
+  jenkins_home:
+  ci_data:
