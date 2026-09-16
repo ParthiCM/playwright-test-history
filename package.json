@@ -1,0 +1,42 @@
+{
+  "name": "playwright-test-triage",
+  "version": "1.0.0",
+  "description": "Cross-build test history and failure-cause triage for Playwright suites running in Jenkins. Zero dependencies.",
+  "main": "src/triage-report.js",
+  "bin": {
+    "triage-report": "src/triage-report.js"
+  },
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "mock": "node tools/generate-mock-history.js --out .mock-store --builds 14",
+    "demo": "node tools/generate-mock-history.js --out .mock-store --builds 14 && node src/triage-report.js --store .mock-store --out demo/report.html --job acme-shop-e2e",
+    "report": "node src/triage-report.js"
+  },
+  "keywords": [
+    "playwright",
+    "jenkins",
+    "test-history",
+    "flaky-tests",
+    "triage",
+    "junit",
+    "test-reporting",
+    "qa-automation"
+  ],
+  "author": "Parthiban Murugan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/<YOUR-GITHUB-USERNAME>/playwright-test-triage.git"
+  },
+  "files": [
+    "src/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {}
+}
