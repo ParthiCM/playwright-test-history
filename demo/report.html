@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>acme-shop-e2e - test history</title>
+<style>
+  :root {
+    --bg: #F7F8FA; --surface: #FFFFFF; --surface-2: #EFF1F5;
+    --ink: #14181F; --ink-2: #4A5262; --ink-3: #6E7787;
+    --line: #DFE3EA; --line-strong: #C6CDD8;
+    --accent: #4338CA; --accent-soft: #E8E6FB;
+    --crit: #B42318; --crit-soft: #FBE9E7;
+    --warn: #B54708; --warn-soft: #FBF0DC;
+    --ok: #067647; --ok-soft: #E3F2EA;
+    --shell: #111827;
+    --env-dev: #3B82F6; --env-staging: #F97316; --env-prod: #22C55E; --env-other: #94A3B8;
+    --env-dev-ink: #1D4ED8; --env-staging-ink: #B45309; --env-prod-ink: #15803D;
+    --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D1117; --surface: #151A21; --surface-2: #1C222B;
+      --ink: #E6EAF0; --ink-2: #A2ACBC; --ink-3: #798393;
+      --line: #262D38; --line-strong: #364050;
+      --accent: #8B87F5; --accent-soft: #211F3D;
+      --crit: #F97066; --crit-soft: #2E1A18;
+      --warn: #F79009; --warn-soft: #2D2113;
+      --ok: #47CD89; --ok-soft: #12291F;
+      --env-dev-ink: #93C5FD; --env-staging-ink: #FDBA74; --env-prod-ink: #86EFAC;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0D1117; --surface: #151A21; --surface-2: #1C222B;
+    --ink: #E6EAF0; --ink-2: #A2ACBC; --ink-3: #798393;
+    --line: #262D38; --line-strong: #364050;
+    --accent: #8B87F5; --accent-soft: #211F3D;
+    --crit: #F97066; --crit-soft: #2E1A18;
+    --warn: #F79009; --warn-soft: #2D2113;
+    --ok: #47CD89; --ok-soft: #12291F;
+    --env-dev-ink: #93C5FD; --env-staging-ink: #FDBA74; --env-prod-ink: #86EFAC;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--font-sans); font-size: 16px; line-height: 1.6;
+  }
+  .wrap {
+    max-width: 1200px; margin: 0 auto; padding: 0 24px 64px;
+    display: flex; flex-direction: column; gap: 34px;
+  }
+  h1, h2, h3 { margin: 0; line-height: 1.25; }
+  a { color: var(--accent); }
+
+  /* ---------- shell bar ---------- */
+  header.shell { background: var(--shell); border-bottom: 3px solid var(--accent); padding: 0 24px; }
+  header.shell .bar {
+    max-width: 1200px; margin: 0 auto; min-height: 62px; padding: 10px 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .mark { display: flex; align-items: center; gap: 10px; color: #fff; }
+  .mark svg { display: block; flex: none; }
+  .mark b { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .mark span { font-size: 11px; color: #9AA5B8; display: block; letter-spacing: 0.04em; text-transform: uppercase; }
+  .meta {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-family: var(--font-mono); font-size: 12px; color: #9AA5B8;
+  }
+  .meta a { color: #C7D2FE; }
+  .meta i.sep { color: #4B5563; font-style: normal; }
+
+  /* ---------- masthead ---------- */
+  .crumb {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-3); margin-top: 26px;
+  }
+  h1 { font-size: clamp(26px, 4.4vw, 40px); letter-spacing: -0.02em; margin-top: 8px; }
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface);
+  }
+  .stat { padding: 16px 18px; border-right: 1px solid var(--line); }
+  .stat:last-child { border-right: none; }
+  .stat .n { display: block; font-size: 27px; font-weight: 700; letter-spacing: -0.02em; }
+  .stat .k {
+    display: block; font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-top: 2px;
+  }
+  .stat .d { display: block; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); margin-top: 6px; }
+  .stat.crit .n { color: var(--crit); } .stat.crit { background: var(--crit-soft); }
+  .stat.ok .n { color: var(--ok); } .stat.ok { background: var(--ok-soft); }
+  .d.up { color: var(--crit); } .d.down { color: var(--ok); }
+
+  /* ---------- section headings ---------- */
+  .sect { display: flex; flex-direction: column; gap: 14px; }
+  .sect > .head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+    border-bottom: 1px solid var(--line); padding-bottom: 8px; flex-wrap: wrap;
+  }
+  .sect > .head h2 {
+    font-family: var(--font-mono); font-size: 12.5px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+  }
+  .sect > .head .cnt { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); }
+  p.note { margin: 0; font-size: 14.5px; color: var(--ink-2); max-width: 78ch; }
+  p.note b { color: var(--ink); }
+
+  /* ---------- environment chips ---------- */
+  .env-chip {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    min-width: 44px; padding: 1px 5px; border-radius: 3px; vertical-align: 1px;
+    border: 1px solid var(--line-strong); background: transparent; color: var(--ink-3);
+    font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+    letter-spacing: 0.07em; line-height: 1.55;
+  }
+  .env-chip.env-dev {
+    color: var(--env-dev-ink); border-color: color-mix(in srgb, var(--env-dev) 45%, transparent);
+    background: color-mix(in srgb, var(--env-dev) 12%, transparent);
+  }
+  .env-chip.env-staging {
+    color: var(--env-staging-ink); border-color: color-mix(in srgb, var(--env-staging) 50%, transparent);
+    background: color-mix(in srgb, var(--env-staging) 14%, transparent);
+  }
+  .env-chip.env-prod {
+    color: var(--env-prod-ink); border-color: color-mix(in srgb, var(--env-prod) 50%, transparent);
+    background: color-mix(in srgb, var(--env-prod) 14%, transparent);
+  }
+  header.shell .env-chip { color: #CBD5E1; border-color: rgba(255,255,255,0.28); }
+  header.shell .env-chip.env-dev,
+  header.shell .env-chip.env-staging,
+  header.shell .env-chip.env-prod { color: #fff; border-color: transparent; }
+  header.shell .env-chip.env-dev { background: var(--env-dev); }
+  header.shell .env-chip.env-staging { background: #EA7317; }
+  header.shell .env-chip.env-prod { background: #16A34A; }
+
+  /* ---------- trend ---------- */
+  .filterbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .filterbar .lab {
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.09em; margin-right: 2px;
+  }
+  .chip {
+    font-family: var(--font-mono); font-size: 11.5px; padding: 5px 10px;
+    border: 1px solid var(--line-strong); border-radius: 5px;
+    background: var(--surface); color: var(--ink-2); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .trend { display: grid; grid-template-columns: 186px 1fr 104px; gap: 6px 12px; align-items: center;
+           font-family: var(--font-mono); font-size: 12.5px; }
+  .trow { display: contents; }
+  .trow[hidden] { display: none; }
+  .trend .lbl { display: flex; align-items: center; gap: 7px; color: var(--ink-3); white-space: nowrap; }
+  .trend .lbl b { color: var(--ink-2); font-weight: 600; }
+  .trend .lbl.now b { color: var(--ink); }
+  .trend .br { font-size: 10.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; }
+  .trend .track { display: flex; height: 20px; border-radius: 3px; overflow: hidden; background: var(--surface-2); }
+  .trend .track i { display: block; height: 100%; }
+  .trend .red { background: color-mix(in srgb, var(--crit) 72%, transparent); }
+  .trend .skp { background: color-mix(in srgb, var(--warn) 48%, transparent); }
+  .trend .grn { background: color-mix(in srgb, var(--ok) 66%, transparent); }
+  .trend .num { color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+  .trend .num.now { color: var(--ink); font-weight: 600; }
+
+  /* ---------- accordions ---------- */
+  details.acc { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  details.acc > summary {
+    list-style: none; cursor: pointer; padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  details.acc > summary::-webkit-details-marker { display: none; }
+  details.acc > summary .t {
+    font-family: var(--font-mono); font-size: 12.5px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+    display: flex; align-items: center; gap: 9px;
+  }
+  details.acc > summary .t::before {
+    content: "\25B8"; transition: transform 0.15s ease; color: var(--ink-3); font-size: 11px;
+  }
+  details.acc[open] > summary .t::before { transform: rotate(90deg); }
+  details.acc > summary .cnt { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); }
+  .accbody { padding: 0 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ---------- matrix ---------- */
+  .mxtools { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+  .mxsearch {
+    font-family: var(--font-mono); font-size: 13px; padding: 6px 11px;
+    border: 1px solid var(--line-strong); border-radius: 5px;
+    background: var(--surface); color: var(--ink); min-width: 220px;
+  }
+  .mxshown { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); margin-left: auto; }
+  .colwrap { position: relative; }
+  .colpanel {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 258px;
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 7px;
+    padding: 12px 14px; max-height: 360px; overflow: auto;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.16);
+  }
+  .colpanel[hidden] { display: none; }
+  .colsec {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600; margin: 12px 0 6px;
+  }
+  .colsec:first-child { margin-top: 0; }
+  .colpanel label {
+    display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-2);
+  }
+  .colpanel label:hover { color: var(--ink); }
+  .colpanel input { accent-color: var(--accent); margin: 0; }
+  .quick { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+  .quick:empty { display: none; }
+  .quick button {
+    font-family: var(--font-mono); font-size: 10.5px; padding: 3px 7px; cursor: pointer;
+    border: 1px solid var(--line-strong); border-radius: 4px;
+    background: var(--surface); color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .quick button:hover { border-color: var(--accent); color: var(--accent); }
+  .colpanel .env-chip { min-width: 30px; padding: 0 3px; font-size: 8px; letter-spacing: 0.04em; }
+  .blist { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 8px; }
+  .blist.has-env { grid-template-columns: repeat(2, 1fr); }
+
+  .mxscroll {
+    overflow: auto; max-height: 76vh; border: 1px solid var(--line); border-radius: 7px;
+    background: var(--surface); overscroll-behavior: contain;
+  }
+  table.mx { border-collapse: separate; border-spacing: 0; font-size: 13px; width: 100%; min-width: max-content; }
+  table.mx th, table.mx td { padding: 0; }
+  table.mx thead th {
+    position: sticky; top: 0; z-index: 3; background: var(--surface-2);
+    border-bottom: 1px solid var(--line-strong);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    color: var(--ink-3); text-align: center; padding: 5px 0 4px; white-space: nowrap;
+  }
+  table.mx thead th b { display: block; font-size: 11.5px; color: var(--ink-2); }
+  table.mx thead th.bcol { width: 30px; border-bottom: 2px solid var(--env-other); }
+  table.mx thead th.bcol.env-dev { border-bottom-color: var(--env-dev); }
+  table.mx thead th.bcol.env-staging { border-bottom-color: var(--env-staging); }
+  table.mx thead th.bcol.env-prod { border-bottom-color: var(--env-prod); }
+  table.mx thead th.bcol .cap {
+    display: block; width: fit-content; margin: 0 auto 2px; padding: 0 3px;
+    border: 1px solid var(--line-strong); border-radius: 2px; background: var(--surface);
+    font-size: 8px; font-weight: 700; letter-spacing: 0.05em; color: var(--ink-3);
+  }
+  table.mx thead th.bcol.env-dev .cap,
+  table.mx thead th.bcol.env-staging .cap,
+  table.mx thead th.bcol.env-prod .cap { color: #fff; border-color: transparent; }
+  table.mx thead th.bcol.env-dev .cap { background: var(--env-dev); }
+  table.mx thead th.bcol.env-staging .cap { background: #EA7317; }
+  table.mx thead th.bcol.env-prod .cap { background: #16A34A; }
+
+  table.mx td.cid, table.mx th.cid {
+    position: sticky; left: 0; z-index: 2; background: var(--surface);
+    padding: 3px 10px 3px 12px; border-bottom: 1px solid var(--line);
+    white-space: nowrap; width: 108px;
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--ink);
+  }
+  table.mx td.ctitle, table.mx th.ctitle {
+    position: sticky; left: 108px; z-index: 2; background: var(--surface);
+    padding: 3px 12px 3px 2px; border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line); white-space: nowrap;
+    max-width: 320px; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2);
+  }
+  table.mx.no-title td.ctitle, table.mx.no-title th.ctitle { display: none; }
+  table.mx.no-title td.cid, table.mx.no-title th.cid { border-right: 1px solid var(--line); }
+  table.mx td.csuite, table.mx th.csuite {
+    font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-3);
+    padding: 3px 10px; border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  table.mx td.cell { width: 30px; border-bottom: 1px solid var(--line); text-align: center; }
+  table.mx td.cell i {
+    display: inline-block; width: 15px; height: 15px; border-radius: 3px; vertical-align: -2px;
+  }
+  .s-P { background: color-mix(in srgb, var(--ok) 62%, transparent); }
+  .s-F { background: color-mix(in srgb, var(--crit) 78%, transparent); }
+  .s-S { background: color-mix(in srgb, var(--warn) 42%, transparent); }
+  .s-x { background: transparent; border: 1px dashed var(--line-strong); }
+  table.mx.diffon td.cell.changed i { outline: 2px solid var(--accent); outline-offset: 1px; }
+  table.mx td.sum {
+    font-family: var(--font-mono); font-size: 11px; text-align: center;
+    border-bottom: 1px solid var(--line); color: var(--ink-2); white-space: nowrap;
+  }
+  table.mx th.sum { padding: 5px 12px 4px; }
+  table.mx th.crate, table.mx td.crate { border-left: 1px solid var(--line-strong); padding-left: 12px; }
+  table.mx th.csince, table.mx td.csince { padding-right: 16px; }
+  table.mx td.cflips.hot { color: var(--warn); font-weight: 700; }
+  table.mx td.csince.hot { color: var(--crit); font-weight: 700; }
+  table.mx tbody tr:hover td { background: var(--surface-2); }
+  table.mx tbody tr[hidden] { display: none; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+  /* ---------- causes ---------- */
+  table.ca { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.ca th {
+    text-align: left; font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3);
+    font-weight: 600; padding: 9px 14px; border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+  }
+  table.ca td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.ca tr:last-child td { border-bottom: none; }
+  table.ca td.n {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-weight: 700; color: var(--crit); width: 1%; text-align: right; font-size: 16px;
+  }
+  table.ca td.err { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
+  table.ca td.err small { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 4px; }
+  table.ca td.ids { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2); line-height: 1.8; }
+  table.ca tr.top { background: var(--crit-soft); }
+  .empty {
+    padding: 28px; text-align: center; color: var(--ink-3);
+    font-family: var(--font-mono); font-size: 13px;
+  }
+  .tablewrap { border: 1px solid var(--line); border-radius: 7px; background: var(--surface); overflow-x: auto; }
+
+  /* ---------- footer ---------- */
+  footer.pg {
+    border-top: 1px solid var(--line); margin-top: 8px; padding-top: 18px;
+    display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+  }
+
+  @media (max-width: 720px) {
+    .trend { grid-template-columns: 150px 1fr; }
+    .trend .num { display: none; }
+    .colpanel { width: 236px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="shell">
+  <div class="bar">
+    <div class="mark">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+        <rect x="1" y="1" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="9.75" y="1" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="18.5" y="1" width="6.5" height="6.5" rx="1.5" fill="#F87171"/>
+        <rect x="1" y="9.75" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="9.75" y="9.75" width="6.5" height="6.5" rx="1.5" fill="#F87171"/>
+        <rect x="18.5" y="9.75" width="6.5" height="6.5" rx="1.5" fill="#F87171"/>
+        <rect x="1" y="18.5" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="9.75" y="18.5" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+        <rect x="18.5" y="18.5" width="6.5" height="6.5" rx="1.5" fill="#22C55E"/>
+      </svg>
+      <span><b>Test History</b><span>build-over-build triage</span></span>
+    </div>
+    <div class="meta" id="meta"></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div>
+    <div class="crumb" id="crumb"></div>
+    <h1 id="headline"></h1>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <section class="sect">
+    <div class="head"><h2>Trend</h2><span class="cnt" id="trendcnt"></span></div>
+    <div class="filterbar" id="envfilter"></div>
+    <div class="trend" id="trend"></div>
+    <p class="note">
+      Red is failed, amber skipped, green passed, each as a share of that build&rsquo;s own total.
+      Totals move when tests are added or removed, so compare <b>shares</b> rather than raw counts.
+    </p>
+  </section>
+
+  <details class="acc" id="accA" open>
+    <summary><span class="t">Table A &mdash; every test, every build</span><span class="cnt" id="cntA"></span></summary>
+    <div class="accbody">
+      <p class="note">
+        One row per test, one column per build. <b>Read the shapes</b>: a solid red band is chronically
+        broken, an alternating band is flaky, and a red-to-green edge is the build where a fix landed.
+      </p>
+      <div class="mxtools">
+        <input class="mxsearch" id="mxsearch" type="search" placeholder="search id or title&hellip;" aria-label="Search tests">
+        <button class="chip" data-f="fail" aria-pressed="false">failing now</button>
+        <button class="chip" data-f="flaky" aria-pressed="false">flaky</button>
+        <button class="chip" data-f="fixed" aria-pressed="false">fixed</button>
+        <button class="chip" data-f="green" aria-pressed="false">always green</button>
+        <button class="chip" id="mxdiff" aria-pressed="false" title="Ring every cell whose outcome changed from the build before it">diff mode</button>
+        <span class="colwrap">
+          <button class="chip" id="colbtn" aria-expanded="false" aria-controls="colpanel">columns &#9662;</button>
+          <div class="colpanel" id="colpanel" hidden>
+            <div class="colsec">columns</div>
+            <label><input type="checkbox" data-col="title" checked> title</label>
+            <label><input type="checkbox" data-col="suite" checked> suite</label>
+            <label><input type="checkbox" data-col="rate" checked> rate</label>
+            <label><input type="checkbox" data-col="flips" checked> flips</label>
+            <label><input type="checkbox" data-col="since" checked> since</label>
+            <div class="colsec">builds</div>
+            <div class="quick" id="quickn"></div>
+            <div class="quick" id="quickenv"></div>
+            <div class="blist" id="blist"></div>
+          </div>
+        </span>
+        <span class="mxshown" id="mxshown"></span>
+      </div>
+      <div class="mxscroll"><table class="mx" id="mxt"></table></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </details>
+
+  <details class="acc" id="accB" open>
+    <summary><span class="t">Table B &mdash; root causes</span><span class="cnt" id="cntB"></span></summary>
+    <div class="accbody">
+      <p class="note">
+        Every test failing in the latest build, grouped by <b>failure signature</b> &mdash; the error
+        message plus the deepest frame in your own code. Tests that fail the same way in the same place
+        are one row, so <b>fixing one row clears every test in it</b>. The grouping is mechanical: it
+        tells you which tests share a cause, not why.
+      </p>
+      <div class="tablewrap" id="causes"></div>
+    </div>
+  </details>
+
+  <footer class="pg">
+    <span id="footl"></span>
+    <span id="footr"></span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var D = {"builds":[{"n":101,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/101/","date":"2026-03-10T09:15:00.000Z","t":40,"p":29,"f":11,"s":0},{"n":102,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/102/","date":"2026-03-11T09:15:00.000Z","t":40,"p":29,"f":11,"s":0},{"n":103,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/103/","date":"2026-03-12T09:15:00.000Z","t":40,"p":25,"f":15,"s":0},{"n":104,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/104/","date":"2026-03-13T09:15:00.000Z","t":40,"p":24,"f":16,"s":0},{"n":105,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/105/","date":"2026-03-14T09:15:00.000Z","t":40,"p":26,"f":12,"s":2},{"n":106,"branch":"feature/product-reviews","env":"dev","url":"https://ci.example.test/job/acme-shop-e2e/106/","date":"2026-03-15T09:15:00.000Z","t":43,"p":31,"f":10,"s":2},{"n":107,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/107/","date":"2026-03-16T09:15:00.000Z","t":43,"p":29,"f":12,"s":2},{"n":108,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/108/","date":"2026-03-17T09:15:00.000Z","t":43,"p":32,"f":11,"s":0},{"n":109,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/109/","date":"2026-03-18T09:15:00.000Z","t":43,"p":38,"f":5,"s":0},{"n":110,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/110/","date":"2026-03-19T09:15:00.000Z","t":43,"p":38,"f":5,"s":0},{"n":111,"branch":"release/2.4","env":"prod","url":"https://ci.example.test/job/acme-shop-e2e/111/","date":"2026-03-20T09:15:00.000Z","t":42,"p":38,"f":4,"s":0},{"n":112,"branch":"feature/product-reviews","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/112/","date":"2026-03-21T09:15:00.000Z","t":42,"p":34,"f":8,"s":0},{"n":113,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/113/","date":"2026-03-22T09:15:00.000Z","t":42,"p":34,"f":8,"s":0},{"n":114,"branch":"main","env":"staging","url":"https://ci.example.test/job/acme-shop-e2e/114/","date":"2026-03-23T09:15:00.000Z","t":42,"p":32,"f":10,"s":0}],"tests":[{"id":"TC-1034","title":"Cart survives a page reload","suite":"cart","s":["P","P","F","P","P","P","F","P","F","F","P","P","P","F"],"runs":14,"passed":9,"flips":7,"since":114},{"id":"TC-1016","title":"Paginate through long result lists","suite":"search","s":["P","P","P","F","F","P","F","F","P","P","P","F","F","F"],"runs":14,"passed":7,"flips":5,"since":112},{"id":"TC-1012","title":"Search suggestions appear while typing","suite":"search","s":["P","P","P","F","F","P","P","P","P","P","P","P","P","F"],"runs":14,"passed":11,"flips":3,"since":114},{"id":"TC-1024","title":"Related products render below the fold","suite":"product","s":["P","P","P","P","P","P","P","P","P","P","P","F","F","F"],"runs":14,"passed":11,"flips":1,"since":112},{"id":"TC-1025","title":"Customer reviews load on demand","suite":"product","s":["-","-","-","-","-","P","P","P","P","P","P","F","F","F"],"runs":9,"passed":6,"flips":1,"since":112},{"id":"TC-1026","title":"Review rating filter narrows the list","suite":"product","s":["-","-","-","-","-","P","P","P","P","P","P","F","F","F"],"runs":9,"passed":6,"flips":1,"since":112},{"id":"TC-1031","title":"Increase the quantity of a cart line","suite":"cart","s":["P","P","F","F","F","F","F","F","F","F","F","F","F","F"],"runs":14,"passed":2,"flips":1,"since":103},{"id":"TC-1035","title":"Apply a percentage discount code","suite":"cart","s":["P","P","F","F","F","F","F","F","F","F","F","F","F","F"],"runs":14,"passed":2,"flips":1,"since":103},{"id":"TC-1036","title":"Reject an expired discount code","suite":"cart","s":["P","P","F","F","F","F","F","F","F","F","F","F","F","F"],"runs":14,"passed":2,"flips":1,"since":103},{"id":"TC-1053","title":"Download an invoice as PDF","suite":"account","s":["F","F","F","F","F","F","F","F","F","F","F","F","F","F"],"runs":14,"passed":0,"flips":0,"since":101},{"id":"TC-1001","title":"Sign in with a valid account","suite":"auth","s":["F","F","F","F","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":10,"flips":1,"since":null},{"id":"TC-1003","title":"Lock the account after five failed attempts","suite":"auth","s":["F","F","F","F","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":10,"flips":1,"since":null},{"id":"TC-1004","title":"Send a password reset email","suite":"auth","s":["F","F","F","F","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":10,"flips":1,"since":null},{"id":"TC-1040","title":"Complete checkout with a saved card","suite":"checkout","s":["F","F","F","F","F","F","F","F","P","P","P","P","P","P"],"runs":14,"passed":6,"flips":1,"since":null},{"id":"TC-1041","title":"Complete checkout as a guest","suite":"checkout","s":["F","F","F","F","F","F","F","F","P","P","P","P","P","P"],"runs":14,"passed":6,"flips":1,"since":null},{"id":"TC-1043","title":"Switch delivery method updates the total","suite":"checkout","s":["F","F","F","F","F","F","F","F","P","P","P","P","P","P"],"runs":14,"passed":6,"flips":1,"since":null},{"id":"TC-1044","title":"Apply store credit at checkout","suite":"checkout","s":["F","F","F","F","F","F","F","F","P","P","P","P","P","P"],"runs":14,"passed":6,"flips":1,"since":null},{"id":"TC-1046","title":"Order confirmation shows the order number","suite":"checkout","s":["F","F","F","F","F","F","F","F","P","P","P","P","P","P"],"runs":14,"passed":6,"flips":1,"since":null},{"id":"TC-CheckoutAddressBook","title":"Pick an address from the address book","suite":"checkout","s":["F","F","F","F","F","F","F","F","P","P","P","P","P","P"],"runs":14,"passed":6,"flips":1,"since":null},{"id":"TC-GuestCheckoutAllowed","title":"Allow checkout without an account","suite":"auth","s":["F","F","F","F","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":10,"flips":1,"since":null},{"id":"TC-1002","title":"Reject sign in with a wrong password","suite":"auth","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1010","title":"Search returns matching products","suite":"search","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1011","title":"Search handles an empty result set","suite":"search","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1013","title":"Filter results by price range","suite":"search","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1014","title":"Filter results by brand","suite":"search","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1015","title":"Sort results by price ascending","suite":"search","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1020","title":"Product page shows price and stock","suite":"product","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1021","title":"Switch between product image variants","suite":"product","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1022","title":"Select a size before adding to cart","suite":"product","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1023","title":"Out of stock hides the add-to-cart button","suite":"product","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1030","title":"Add a single item to the cart","suite":"cart","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1032","title":"Remove a line from the cart","suite":"cart","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1033","title":"Cart badge reflects the item count","suite":"cart","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1037","title":"Legacy cart merge on sign in","suite":"cart","s":["P","P","P","P","P","P","P","P","P","P","-","-","-","-"],"runs":10,"passed":10,"flips":0,"since":null},{"id":"TC-1042","title":"Validate required address fields","suite":"checkout","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1045","title":"Decline an invalid card number","suite":"checkout","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1050","title":"Update the account display name","suite":"account","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1051","title":"Add a new delivery address","suite":"account","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1052","title":"Order history lists past orders","suite":"account","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1054","title":"Manage marketing preferences","suite":"account","s":["P","P","P","P","P","P","P","P","P","P","P","P","P","P"],"runs":14,"passed":14,"flips":0,"since":null},{"id":"TC-1060","title":"Register a new payment card","suite":"payments","s":["P","P","P","P","S","S","S","P","P","P","P","P","P","P"],"runs":11,"passed":11,"flips":0,"since":null},{"id":"TC-1061","title":"Delete a stored payment card","suite":"payments","s":["P","P","P","P","S","S","S","P","P","P","P","P","P","P"],"runs":11,"passed":11,"flips":0,"since":null},{"id":"TC-1062","title":"Refund shows on the order","suite":"payments","s":["-","-","-","-","-","P","P","P","P","P","P","P","P","P"],"runs":9,"passed":9,"flips":0,"since":null}],"clusters":[{"sig":"expect(received).toEqual(expected)  @  src/pages/cart.page.ts:64","error":"expect(received).toEqual(expected)","location":"src/pages/cart.page.ts:64","ids":["TC-1031","TC-1035","TC-1036"],"count":3},{"sig":"locator.click: Timeout <n>ms exceeded.  @  src/pages/search.page.ts:88","error":"locator.click: Timeout <n>ms exceeded.","location":"src/pages/search.page.ts:88","ids":["TC-1012","TC-1016","TC-1034"],"count":3},{"sig":"locator.waitFor: Timeout <n>ms exceeded.  @  src/pages/product.page.ts:203","error":"locator.waitFor: Timeout <n>ms exceeded.","location":"src/pages/product.page.ts:203","ids":["TC-1024","TC-1025","TC-1026"],"count":3},{"sig":"Error: Download did not start within <n>ms  @  src/pages/account.page.ts:157","error":"Error: Download did not start within <n>ms","location":"src/pages/account.page.ts:157","ids":["TC-1053"],"count":1}],"job":"acme-shop-e2e","generated":"2026-09-16T10:14:05.988Z"};
+
+  var esc = function (s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  };
+
+  var builds = D.builds || [];
+  var tests = D.tests || [];
+  var clusters = D.clusters || [];
+  var last = builds[builds.length - 1] || { n: "-", t: 0, p: 0, f: 0, s: 0 };
+  var prev = builds[builds.length - 2] || null;
+  var lastIdx = builds.length - 1;
+
+  /* ---------- environment helpers ---------- */
+  var KNOWN = ["dev", "staging", "prod"];
+  var CAPS = { dev: "DEV", staging: "STG", prod: "PROD" };
+  var envClass = function (e) { return KNOWN.indexOf(e) >= 0 ? "env-" + e : ""; };
+  var envCap = function (e) { return e ? (CAPS[e] || e.slice(0, 4).toUpperCase()) : "—"; };
+  var envName = function (e) { return e || "not recorded"; };
+  var envChip = function (e) {
+    return '<i class="env-chip ' + envClass(e) + '" title="' + esc(envName(e)) + '">' + esc(envCap(e)) + "</i>";
+  };
+
+  var envs = [];
+  builds.forEach(function (b) {
+    var e = b.env || "";
+    if (envs.indexOf(e) < 0) envs.push(e);
+  });
+  var mixedEnvs = envs.length > 1;
+
+  /* ---------- header ---------- */
+  document.getElementById("meta").innerHTML =
+    esc(D.job || "test suite") +
+    '<i class="sep">&middot;</i>build #' + esc(last.n) +
+    (last.env ? '<i class="sep">&middot;</i>' + envChip(last.env) + " " + esc(last.env) : "") +
+    (last.branch ? '<i class="sep">&middot;</i>' + esc(last.branch) : "") +
+    (last.url ? '<i class="sep">&middot;</i><a href="' + esc(last.url) + '">open build</a>' : "");
+
+  document.getElementById("crumb").textContent =
+    [D.job || "test suite", "build #" + last.n, last.branch || ""].filter(Boolean).join("  /  ");
+
+  var rate = last.t ? Math.round((last.p / last.t) * 100) : 0;
+  document.getElementById("headline").textContent =
+    rate + "% passing — " + last.f + " failing of " + last.t;
+
+  /* ---------- stats ---------- */
+  function stat(cls, n, k, d, dcls) {
+    return '<div class="stat ' + cls + '"><span class="n">' + n + '</span><span class="k">' + k +
+      '</span><span class="d ' + (dcls || "") + '">' + d + "</span></div>";
+  }
+  var delta = prev ? last.f - prev.f : 0;
+  var flaky = tests.filter(function (t) { return t.flips >= 2; }).length;
+
+  document.getElementById("stats").innerHTML =
+    stat("crit", last.f, "failed", prev ? (delta > 0 ? "+" + delta : delta) + " vs #" + prev.n : "first build",
+         delta > 0 ? "up" : delta < 0 ? "down" : "") +
+    stat("ok", last.p, "passed", rate + "% of " + last.t) +
+    stat("", last.s, "skipped", last.s ? "excluded from rate" : "none") +
+    stat("", builds.length, "builds tracked", builds.length ? "#" + builds[0].n + " → #" + last.n : "") +
+    stat("", tests.length, "tests seen", "across all builds") +
+    stat("", flaky, "flaky", "flipped 2+ times");
+
+  /* ---------- trend ---------- */
+  document.getElementById("trendcnt").textContent = builds.length + " builds";
+  document.getElementById("trend").innerHTML = builds.map(function (b, i) {
+    var now = i === lastIdx;
+    var total = b.t || 1;
+    return '<span class="trow" data-env="' + esc(b.env || "") + '">' +
+      '<span class="lbl' + (now ? " now" : "") + '">' + envChip(b.env) + "<b>#" + b.n + "</b>" +
+      (b.branch
+        ? '<span class="br" title="' + esc(b.branch) + '">' +
+          esc(String(b.branch).length > 18 ? String(b.branch).slice(0, 17) + "…" : b.branch) + "</span>"
+        : "") + "</span>" +
+      '<span class="track" title="#' + b.n + " — " + b.f + " failed, " + b.p + " passed, " +
+      b.s + " skipped · " + esc(envName(b.env)) + '">' +
+      '<i class="red" style="width:' + ((b.f / total) * 100).toFixed(1) + '%"></i>' +
+      '<i class="skp" style="width:' + ((b.s / total) * 100).toFixed(1) + '%"></i>' +
+      '<i class="grn" style="width:' + ((b.p / total) * 100).toFixed(1) + '%"></i></span>' +
+      '<span class="num' + (now ? " now" : "") + '">' + b.f + " / " + b.p + "</span></span>";
+  }).join("");
+
+  if (mixedEnvs) {
+    var ef = document.getElementById("envfilter");
+    ef.innerHTML = '<span class="lab">env</span>' +
+      '<button class="chip" data-env="" aria-pressed="true">all</button>' +
+      envs.map(function (e) {
+        return '<button class="chip" data-env="' + esc(e || "~none") + '" aria-pressed="false">' +
+          envChip(e) + esc(envName(e)) + "</button>";
+      }).join("");
+    ef.addEventListener("click", function (ev) {
+      var btn = ev.target.closest("button[data-env]");
+      if (!btn) return;
+      var want = btn.dataset.env;
+      ef.querySelectorAll("button[data-env]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b === btn));
+      });
+      document.querySelectorAll("#trend .trow").forEach(function (row) {
+        var e = row.dataset.env || "";
+        row.hidden = want !== "" && (want === "~none" ? e !== "" : e !== want);
+      });
+    });
+  }
+
+  /* ---------- matrix ---------- */
+  var head = '<thead><tr><th class="cid">test &mdash; ' + tests.length + '</th>' +
+    '<th class="ctitle">title</th><th class="csuite">suite</th>';
+  builds.forEach(function (b) {
+    head += '<th class="bcol bc-' + b.n + " " + envClass(b.env) + '" title="build #' + b.n + " — " +
+      b.f + " failed of " + b.t + " · " + esc(envName(b.env)) +
+      (b.branch ? " · " + esc(b.branch) : "") + '">' +
+      '<i class="cap">' + esc(envCap(b.env)) + "</i><b>" + b.n + "</b>" + b.f + "</th>";
+  });
+  head += '<th class="sum crate" title="passed / executed runs">rate</th>' +
+    '<th class="sum cflips" title="how many times the outcome changed">flips</th>' +
+    '<th class="sum csince" title="build the current failing run began">since</th></tr></thead>';
+
+  var body = tests.map(function (t) {
+    var cells = t.s.map(function (st, i) {
+      var changed = i > 0 && t.s[i - 1] !== "-" && st !== "-" && t.s[i - 1] !== st;
+      return '<td class="cell bc-' + builds[i].n + (changed ? " changed" : "") +
+        '" title="#' + builds[i].n + " — " + ({ P: "passed", F: "failed", S: "skipped" }[st] || "not in this build") +
+        '"><i class="s-' + (st === "-" ? "x" : st) + '"></i></td>';
+    }).join("");
+
+    var pct = t.runs ? Math.round((t.passed / t.runs) * 100) : 0;
+    return '<tr data-id="' + esc(t.id) + '" data-title="' + esc((t.title || "").toLowerCase()) +
+      '" data-now="' + (t.s[lastIdx] || "-") + '" data-flips="' + t.flips + '">' +
+      '<td class="cid">' + esc(t.id) + "</td>" +
+      '<td class="ctitle" title="' + esc(t.title) + '">' + esc(t.title) + "</td>" +
+      '<td class="csuite">' + esc(t.suite) + "</td>" + cells +
+      '<td class="sum crate">' + t.passed + "/" + t.runs + "</td>" +
+      '<td class="sum cflips' + (t.flips >= 2 ? " hot" : "") + '">' + t.flips + "</td>" +
+      '<td class="sum csince' + (t.since ? " hot" : "") + '">' + (t.since ? "#" + t.since : "—") + "</td></tr>";
+  }).join("");
+
+  var table = document.getElementById("mxt");
+  table.innerHTML = head + "<tbody>" + body + "</tbody>";
+
+  document.getElementById("legend").innerHTML =
+    '<span><i class="s-P"></i>passed</span><span><i class="s-F"></i>failed</span>' +
+    '<span><i class="s-S"></i>skipped</span><span><i class="s-x"></i>not in that build</span>' +
+    (mixedEnvs ? "  &mdash; env: " + envs.map(function (e) { return envChip(e) + " " + esc(envName(e)); }).join(" &nbsp; ") : "");
+
+  /* ---------- filters ---------- */
+  var activeFilter = "";
+  var searchBox = document.getElementById("mxsearch");
+  var shown = document.getElementById("mxshown");
+
+  function apply() {
+    var q = searchBox.value.trim().toLowerCase();
+    var visible = 0;
+    table.querySelectorAll("tbody tr").forEach(function (row) {
+      var id = row.dataset.id.toLowerCase();
+      var title = row.dataset.title;
+      var now = row.dataset.now;
+      var flips = Number(row.dataset.flips);
+
+      var okSearch = !q || id.indexOf(q) >= 0 || title.indexOf(q) >= 0;
+      var okFilter = true;
+      if (activeFilter === "fail") okFilter = now === "F";
+      else if (activeFilter === "flaky") okFilter = flips >= 2;
+      else if (activeFilter === "fixed") okFilter = now === "P" && flips >= 1;
+      else if (activeFilter === "green") okFilter = now === "P" && flips === 0;
+
+      var show = okSearch && okFilter;
+      row.hidden = !show;
+      if (show) visible++;
+    });
+    shown.textContent = visible + " of " + tests.length + " tests";
+  }
+
+  searchBox.addEventListener("input", apply);
+  document.querySelectorAll(".mxtools .chip[data-f]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var f = btn.dataset.f;
+      activeFilter = activeFilter === f ? "" : f;
+      document.querySelectorAll(".mxtools .chip[data-f]").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.dataset.f === activeFilter));
+      });
+      apply();
+    });
+  });
+
+  var diffBtn = document.getElementById("mxdiff");
+  diffBtn.addEventListener("click", function () {
+    var on = diffBtn.getAttribute("aria-pressed") !== "true";
+    diffBtn.setAttribute("aria-pressed", String(on));
+    table.classList.toggle("diffon", on);
+  });
+
+  /* ---------- column manager ---------- */
+  var blist = document.getElementById("blist");
+  blist.classList.toggle("has-env", mixedEnvs);
+  blist.innerHTML = builds.map(function (b) {
+    return '<label title="' + esc(envName(b.env)) + '"><input type="checkbox" data-b="' + b.n + '" checked>' +
+      (mixedEnvs ? envChip(b.env) : "") + " #" + b.n + "</label>";
+  }).join("");
+
+  document.getElementById("quickn").innerHTML =
+    [["all", 1e9], ["last 10", 10], ["last 20", 20], ["last 30", 30]]
+      .map(function (q) { return '<button data-n="' + q[1] + '">' + q[0] + "</button>"; })
+      .join("");
+
+  var sheet = document.createElement("style");
+  document.head.appendChild(sheet);
+
+  function refreshCols() {
+    var rules = [];
+    document.querySelectorAll("#colpanel input[data-col]").forEach(function (i) {
+      if (!i.checked) rules.push(".c" + i.dataset.col);
+    });
+    document.querySelectorAll("#colpanel input[data-b]").forEach(function (i) {
+      if (!i.checked) rules.push(".bc-" + i.dataset.b);
+    });
+    sheet.textContent = rules.length ? rules.join(",") + "{display:none}" : "";
+    table.classList.toggle("no-title", !document.querySelector('#colpanel input[data-col="title"]').checked);
+  }
+
+  document.getElementById("colpanel").addEventListener("change", refreshCols);
+
+  document.querySelectorAll("#quickn button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var n = Number(btn.dataset.n);
+      var boxes = [].slice.call(document.querySelectorAll("#colpanel input[data-b]"));
+      boxes.forEach(function (box, i) { box.checked = i >= boxes.length - n; });
+      refreshCols();
+    });
+  });
+
+  if (mixedEnvs) {
+    document.getElementById("quickenv").innerHTML = envs.map(function (e) {
+      return '<button data-env="' + esc(e || "~none") + '" title="show only builds that ran on ' +
+        esc(envName(e)) + '">' + envChip(e) + esc(envName(e)) + "</button>";
+    }).join("");
+    document.querySelectorAll("#quickenv button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var want = btn.dataset.env === "~none" ? "" : btn.dataset.env;
+        builds.forEach(function (b) {
+          var box = document.querySelector('#colpanel input[data-b="' + b.n + '"]');
+          if (box) box.checked = (b.env || "") === want;
+        });
+        refreshCols();
+      });
+    });
+  }
+
+  var colBtn = document.getElementById("colbtn");
+  var colPanel = document.getElementById("colpanel");
+  function setPanel(open) { colPanel.hidden = !open; colBtn.setAttribute("aria-expanded", String(open)); }
+  colBtn.addEventListener("click", function (e) { e.stopPropagation(); setPanel(colPanel.hidden); });
+  colPanel.addEventListener("click", function (e) { e.stopPropagation(); });
+  document.addEventListener("click", function () { setPanel(false); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !colPanel.hidden) { setPanel(false); colBtn.focus(); }
+  });
+
+  if (builds.length > 30) {
+    var boxes = [].slice.call(document.querySelectorAll("#colpanel input[data-b]"));
+    boxes.forEach(function (box, i) { box.checked = i >= boxes.length - 30; });
+  }
+  refreshCols();
+  apply();
+
+  /* ---------- causes ---------- */
+  var failingNow = clusters.reduce(function (a, c) { return a + c.count; }, 0);
+  document.getElementById("causes").innerHTML = clusters.length
+    ? '<table class="ca"><thead><tr><th>tests</th><th>error &amp; location</th><th>test ids</th></tr></thead><tbody>' +
+      clusters.map(function (c, i) {
+        return '<tr' + (i === 0 ? ' class="top"' : "") + '><td class="n">' + c.count + "</td>" +
+          '<td class="err">' + esc(c.error) +
+          (c.location ? "<small>" + esc(c.location) + "</small>" : "") + "</td>" +
+          '<td class="ids">' + c.ids.map(esc).join(" &nbsp; ") + "</td></tr>";
+      }).join("") + "</tbody></table>"
+    : '<div class="empty">Nothing failing in build #' + esc(last.n) + ". Table B is empty, which is the goal.</div>";
+
+  /* ---------- counts + footer ---------- */
+  document.getElementById("cntA").textContent = tests.length + " tests × " + builds.length + " builds";
+  document.getElementById("cntB").textContent =
+    failingNow + " failing · " + clusters.length + " cause" + (clusters.length === 1 ? "" : "s");
+
+  document.getElementById("footl").textContent =
+    "Generated " + (D.generated ? new Date(D.generated).toLocaleString() : "") + " from " + builds.length + " stored builds";
+  document.getElementById("footr").innerHTML =
+    'playwright-test-triage · <a href="https://github.com/&lt;ParthiCM&gt;/playwright-test-triage">source</a>';
+})();
+</script>
+</body>
+</html>
