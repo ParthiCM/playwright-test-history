@@ -11,9 +11,17 @@ problems is this, actually?*
 [![node](https://img.shields.io/badge/node-%E2%89%A518-4338CA)](package.json)
 [![licence](https://img.shields.io/badge/licence-MIT-6E7787)](LICENSE)
 
-> **[▶ Open the live demo report](demo/report.html)** — fourteen builds of a
-> fictional e-commerce suite. Search it, filter it, click around.
-> **[▶ Project walkthrough](demo/index.html)**
+### Live demo
+
+**[Open the demo report →](https://parthicm.github.io/playwright-test-triage/demo/report.html)**
+— fourteen builds of a fictional e-commerce suite. Search it, filter it, click around.
+
+**[Project walkthrough →](https://parthicm.github.io/playwright-test-triage/demo/index.html)**
+— the problem, the architecture, and the design decisions behind it.
+
+<sub>Both pages are fully interactive. GitHub does not render HTML files from the
+repository view, so the links above point at GitHub Pages. To run them locally
+instead: `npm run demo`, then open `demo/report.html` in a browser.</sub>
 
 ![Report overview](docs/images/report-overview.png)
 
@@ -82,7 +90,7 @@ orange from green.
 No install, no dependencies. Node 18+.
 
 ```bash
-git clone https://github.com/<ParthiCM>/playwright-test-triage.git
+git clone https://github.com/ParthiCM/playwright-test-triage.git
 cd playwright-test-triage
 
 npm run demo        # generate 14 builds of mock history and render the report
