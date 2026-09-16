@@ -1,0 +1,21 @@
+# Minimum plugin set for the demo Jenkins in docker-compose.yml.
+#
+#   docker exec triage-demo-jenkins jenkins-plugin-cli --plugin-file /workspace/jenkins/plugins.txt
+#   docker restart triage-demo-jenkins
+
+# Serves the generated report and puts a link in the job sidebar.
+# This is the only plugin the project actually requires.
+htmlpublisher
+
+# Runs the job itself.
+workflow-aggregator
+git
+nodejs
+
+# Optional, but the setup docs reference them.
+junit
+ws-cleanup
+
+# Only needed if you want a custom sidebar icon via a symbol name,
+# e.g. "symbol-stats-chart-outline plugin-ionicons-api"
+ionicons-api
