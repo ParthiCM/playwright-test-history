@@ -1,5 +1,5 @@
 {
-  "name": "playwright-test-triage",
+  "name": "playwright-test-history",
   "version": "1.0.0",
   "description": "Cross-build test history and failure-cause triage for Playwright suites running in Jenkins. Zero dependencies.",
   "main": "src/triage-report.js",
@@ -30,7 +30,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ParthiCM/playwright-test-triage.git"
+    "url": "https://github.com/ParthiCM/playwright-test-history.git"
   },
   "files": [
     "src/",

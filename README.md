@@ -1,4 +1,4 @@
-# Playwright Test Triage
+# Playwright Test History
 
 **Cross-build test history and failure-cause triage for Playwright suites running in CI.**
 
@@ -13,10 +13,10 @@ problems is this, actually?*
 
 ### Live demo
 
-**[Open the demo report →](https://parthicm.github.io/playwright-test-triage/demo/report.html)**
+**[Open the demo report →](https://parthicm.github.io/playwright-test-history/demo/report.html)**
 — fourteen builds of a fictional e-commerce suite. Search it, filter it, click around.
 
-**[Project walkthrough →](https://parthicm.github.io/playwright-test-triage/demo/index.html)**
+**[Project walkthrough →](https://parthicm.github.io/playwright-test-history/demo/index.html)**
 — the problem, the architecture, and the design decisions behind it.
 
 <sub>Both pages are fully interactive. GitHub does not render HTML files from the
@@ -90,8 +90,8 @@ orange from green.
 No install, no dependencies. Node 18+.
 
 ```bash
-git clone https://github.com/ParthiCM/playwright-test-triage.git
-cd playwright-test-triage
+git clone https://github.com/ParthiCM/playwright-test-history.git
+cd playwright-test-history
 
 npm run demo        # generate 14 builds of mock history and render the report
 open demo/report.html
