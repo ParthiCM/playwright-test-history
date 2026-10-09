@@ -84,6 +84,14 @@ function errorLine(text) {
   return "";
 }
 
+/** Make a user-supplied string safe to embed in a RegExp. */
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** A path segment that marks third-party code, wherever it sits in a frame. */
+const VENDOR_SEGMENT = /(?:^|[\\/])node_modules[\\/]/;
+
 /**
  * The deepest stack frame that points at the project's own code.
  *
@@ -91,15 +99,25 @@ function errorLine(text) {
  * them. The first `src/...` frame is where the team's own code gave up, which
  * is where the fix will go.
  *
+ * Each whitespace/paren-delimited token is checked on its own, so the root
+ * only matches as a whole path segment (`mysrc/` is not `src/`) and a frame
+ * that lives under `node_modules` never counts as project code, even when the
+ * package happens to ship its own `src/` directory.
+ *
  * @param {string} text
  * @param {string} [root="src"] Top-level directory of the project's own code.
  * @returns {string}
  */
 function projectFrame(text, root) {
-  const dir = root || "src";
-  const re = new RegExp(`(${dir}[\\\\/][^\\s):]+\\.[jt]sx?:\\d+)`, "g");
-  const frames = String(text || "").match(re);
-  return frames && frames.length ? frames[0].replace(/\\/g, "/") : "";
+  const dir = escapeRegExp(root || "src");
+  const frame = new RegExp(`^(?:.*?[\\\\/])?(${dir}[\\\\/][^\\s):]+\\.[jt]sx?:\\d+)`);
+
+  for (const token of String(text || "").split(/[\s()]+/)) {
+    if (!token || VENDOR_SEGMENT.test(token)) continue;
+    const m = frame.exec(token);
+    if (m) return m[1].replace(/\\/g, "/");
+  }
+  return "";
 }
 
 /**

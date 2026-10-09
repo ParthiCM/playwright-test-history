@@ -73,6 +73,37 @@ test("one corrupt file does not take the whole report down", () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("writeBuild leaves only the final build file, no temp files", () => {
+  const dir = tmpStore();
+  store.writeBuild(dir, rec(5, [{ id: "TC-1", status: "P" }]));
+  store.writeBuild(dir, rec(5, [{ id: "TC-1", status: "F", sig: "x" }]));
+
+  assert.deepEqual(fs.readdirSync(dir), ["build-0005.json"]);
+  assert.equal(store.readStore(dir)[0].tests[0].status, "F");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("a failed writeBuild keeps the previous file intact and cleans up", () => {
+  // The old in-place write truncated the file before writing it, so a crash
+  // mid-write lost the build. Simulate the crash at the rename step.
+  const dir = tmpStore();
+  store.writeBuild(dir, rec(5, [{ id: "TC-1", status: "P" }]));
+
+  const realRename = fs.renameSync;
+  fs.renameSync = () => {
+    throw new Error("simulated crash");
+  };
+  try {
+    assert.throws(() => store.writeBuild(dir, rec(5, [{ id: "TC-1", status: "F", sig: "x" }])), /simulated crash/);
+  } finally {
+    fs.renameSync = realRename;
+  }
+
+  assert.deepEqual(fs.readdirSync(dir), ["build-0005.json"], "no temp file left behind");
+  assert.equal(store.readStore(dir)[0].tests[0].status, "P", "the previous record survives");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("readStore on a missing directory is empty, not an exception", () => {
   assert.deepEqual(store.readStore(path.join(os.tmpdir(), "definitely-not-here-" + Date.now())), []);
 });

@@ -156,7 +156,9 @@ function statusOf(body) {
 function parseJUnitFile(file, signatureFn) {
   const xml = fs.readFileSync(file, "utf8");
   const tests = [];
-  const seen = new Set();
+  // id -> entry in `tests`, so a retry finds its first attempt in O(1). A linear
+  // search here made large retry-heavy suites quadratic.
+  const byId = new Map();
 
   for (const { attrs, body } of splitTestCases(xml)) {
     const name = attr(attrs, "name");
@@ -167,23 +169,24 @@ function parseJUnitFile(file, signatureFn) {
 
     // A retried test appears more than once. Keep the worst outcome so a test
     // that needed three attempts is not quietly reported as a clean pass.
-    if (seen.has(id)) {
-      const prior = tests.find((t) => t.id === id);
-      if (prior && prior.status !== "F" && status === "F") {
+    const prior = byId.get(id);
+    if (prior) {
+      if (prior.status !== "F" && status === "F") {
         prior.status = "F";
         prior.sig = signatureFn ? signatureFn(body) : "failed";
       }
       continue;
     }
-    seen.add(id);
 
-    tests.push({
+    const entry = {
       id,
       title: titleOf(name),
       suite: suiteOf(attr(attrs, "classname")),
       status,
       sig: status === "F" && signatureFn ? signatureFn(body) : "",
-    });
+    };
+    byId.set(id, entry);
+    tests.push(entry);
   }
 
   const failures = tests.filter((t) => t.status === "F").length;
