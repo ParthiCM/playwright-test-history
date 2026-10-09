@@ -64,6 +64,40 @@ test("projectFrame honours a custom source root", () => {
   assert.equal(projectFrame(text, "app"), "app/pages/cart.page.ts:64");
 });
 
+test("projectFrame reads absolute and Windows paths from real stack frames", () => {
+  const posix = "Error: boom\n    at CheckoutPage.pay (/home/ci/workspace/src/pages/checkout.page.ts:118:11)";
+  assert.equal(projectFrame(posix), "src/pages/checkout.page.ts:118");
+
+  const win = "Error: boom\n    at C:\\ci\\ws\\src\\pages\\cart.page.ts:64:3";
+  assert.equal(projectFrame(win), "src/pages/cart.page.ts:64");
+});
+
+test("projectFrame ignores a vendored package's own src/ directory", () => {
+  // Many packages ship `src/`. Matching it groups unrelated failures under a
+  // frame inside a dependency, which is never where the team's fix goes.
+  const text = [
+    "Error: boom",
+    "    at parse (/ci/ws/node_modules/some-lib/src/parser.js:40:9)",
+    "    at C:\\ci\\ws\\node_modules\\other\\src\\x.ts:3:1",
+    "    at Cart.add (/ci/ws/src/pages/cart.page.ts:22:5)",
+  ].join("\n");
+  assert.equal(projectFrame(text), "src/pages/cart.page.ts:22");
+  assert.equal(projectFrame(text.split("\n").slice(0, 3).join("\n")), "", "only vendor frames means no project frame");
+});
+
+test("projectFrame matches the root only as a whole path segment", () => {
+  assert.equal(projectFrame("    at /ci/ws/mysrc/pages/a.page.ts:5:1"), "");
+  assert.equal(projectFrame("    at /ci/ws/mysrc/pages/a.page.ts:5:1", "mysrc"), "mysrc/pages/a.page.ts:5");
+});
+
+test("projectFrame treats --src-root as a literal path, not a pattern", () => {
+  // `.` must not match any character, and `(` must not blow up RegExp.
+  const text = "    at /ci/ws/e2eXsrc/pages/a.page.ts:5:1\n    at /ci/ws/e2e.src/pages/b.page.ts:9:1";
+  assert.equal(projectFrame(text, "e2e.src"), "e2e.src/pages/b.page.ts:9");
+  assert.doesNotThrow(() => projectFrame(text, "src("));
+  assert.equal(projectFrame("    at /ci/ws/apps/web/src/a.ts:3:1", "apps/web/src"), "apps/web/src/a.ts:3");
+});
+
 test("normalise removes values that change on every run", () => {
   // Without this, two runs of the same defect never group together.
   const a = normalise("Timeout 30000ms exceeded at 2026-03-11T09:14:02Z id 6f1c2b7e-1a4d-4f1e-9c2b-77a0a2f0b5d1");

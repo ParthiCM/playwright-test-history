@@ -127,6 +127,31 @@ test("a retried test keeps its worst outcome", () => {
   assert.equal(totals.failures, 1);
 });
 
+test("interleaved retries each fold into their own first attempt, in first-seen order", () => {
+  // Retries are not always adjacent: with several workers, attempt 2 of one
+  // test can land after attempts of many others.
+  const pass = (id) => `<testcase name="${id} 't'" classname="src/tests/a.spec.ts" time="1"/>`;
+  const fail = (id, where) => `<testcase name="${id} 't'" classname="src/tests/a.spec.ts" time="1">
+      <failure message="boom"><![CDATA[Error: boom
+        at ${where}]]></failure>
+    </testcase>`;
+
+  const { tests, totals } = parseXml(`<testsuites><testsuite name="s">
+    ${pass("TC-1")}
+    ${fail("TC-2", "src/pages/first.page.ts:1")}
+    ${pass("TC-3")}
+    ${fail("TC-1", "src/pages/one.page.ts:7")}
+    ${fail("TC-2", "src/pages/second.page.ts:2")}
+    ${pass("TC-3")}
+  </testsuite></testsuites>`);
+
+  assert.deepEqual(tests.map((t) => t.id), ["TC-1", "TC-2", "TC-3"]);
+  assert.deepEqual(tests.map((t) => t.status), ["F", "F", "P"]);
+  assert.match(tests[0].sig, /one\.page\.ts:7/, "a later failure supplies the signature for an earlier pass");
+  assert.match(tests[1].sig, /first\.page\.ts:1/, "an already-failed test keeps its first signature");
+  assert.deepEqual(totals, { tests: 3, failures: 2, skipped: 0, passed: 1 });
+});
+
 test("tests with no id are kept, keyed on their full name", () => {
   const { tests } = parseXml(`<testsuites><testsuite name="s">
     <testcase name="an unlabelled test" classname="src/tests/a.spec.ts" time="1"/>

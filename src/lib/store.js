@@ -68,13 +68,27 @@ function initStore(dir) {
 /**
  * Write one build's results. Overwrites only that build's own file.
  *
+ * The record goes to a temporary file in the same directory first and is then
+ * renamed into place. A rename within one directory replaces the target in a
+ * single step (atomic on POSIX, a replacing move on Windows), so a job that
+ * is killed mid-write leaves either the previous file or the new one - never a
+ * truncated `build-NNNN.json` that readStore() would silently drop. The temp
+ * name does not match `build-NNNN.json`, so a leftover is never read as a build.
+ *
  * @param {string} dir
  * @param {object} record
  * @returns {string} Path written.
  */
 function writeBuild(dir, record) {
   const dest = path.join(dir, fileNameFor(record.build));
-  fs.writeFileSync(dest, JSON.stringify(record));
+  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(record));
+    fs.renameSync(tmp, dest);
+  } catch (err) {
+    fs.rmSync(tmp, { force: true });
+    throw err;
+  }
   return dest;
 }
 
