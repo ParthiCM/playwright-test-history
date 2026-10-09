@@ -47,6 +47,70 @@ function parseArgs(argv) {
   return args;
 }
 
+/**
+ * Validate a `--build` value.
+ *
+ * `Number("abc")` is NaN, which used to be written as `build-0NaN.json` - a
+ * file `readStore` never matches, so the build vanished without an error.
+ *
+ * @param {string|boolean} value
+ * @returns {number|null} The build number, or null if it is not a valid one.
+ */
+function parseBuildNumber(value) {
+  if (typeof value !== "string" || !/^\d+$/.test(value.trim())) return null;
+  const n = Number(value.trim());
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+/**
+ * Escape text for an HTML text node. Used for the page `<title>`, where the
+ * job name lands before any template script has a chance to escape it.
+ *
+ * @param {string} s
+ * @returns {string}
+ */
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
+}
+
+/**
+ * Serialise data for embedding in an inline `<script>`.
+ *
+ * Escaping every `<` (not just `</`) also closes off `<!--` and `<script`
+ * sequences, which change how the HTML parser tokenises script content.
+ * U+2028/U+2029 are escaped for older JS engines that reject them in source.
+ *
+ * @param {object} data
+ * @returns {string}
+ */
+function serialiseForScript(data) {
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+/**
+ * Fill the report template.
+ *
+ * Replacements are passed as functions, not strings. A replacement string
+ * gives `$&`, `$'`, `` $` `` and `$$` special meaning, so a failure message
+ * such as "expected $'10.00'" used to splice parts of the template into the
+ * embedded JSON and produce a page that would not load.
+ *
+ * @param {string} template
+ * @param {object} data
+ * @returns {string}
+ */
+function renderHtml(template, data) {
+  const title = escapeHtml(`${data.job} - test history`);
+  const json = serialiseForScript(data);
+  return template.replace("__TITLE__", () => title).replace("__DATA__", () => json);
+}
+
 const HELP = `
 playwright-test-triage - cross-build test history and failure triage
 
@@ -122,7 +186,16 @@ function main() {
   }
 
   // ---- record this build ------------------------------------------------
+  if (args.junit && !args.build) {
+    console.error(`${PREFIX} --junit needs --build <number>`);
+    return 1;
+  }
   if (args.junit && args.build) {
+    const build = parseBuildNumber(args.build);
+    if (build === null) {
+      console.error(`${PREFIX} --build must be a non-negative integer, got: ${args.build}`);
+      return 1;
+    }
     const junitPath = String(args.junit);
 
     if (!fs.existsSync(junitPath)) {
@@ -132,7 +205,7 @@ function main() {
       const { tests, totals } = parseJUnitFile(junitPath, (body) => signatureOf(body, srcRoot));
 
       const record = {
-        build: Number(args.build),
+        build,
         branch: args.branch === true ? "" : String(args.branch || ""),
         env: envOf(args.env === true ? "" : args.env),
         url: args.url === true ? "" : String(args.url || ""),
@@ -159,10 +232,7 @@ function main() {
   data.job = args.job === true ? "" : String(args.job || path.basename(storeDir));
   data.generated = new Date().toISOString();
 
-  const html = fs
-    .readFileSync(TEMPLATE, "utf8")
-    .replace("__TITLE__", `${data.job} - test history`)
-    .replace("__DATA__", JSON.stringify(data).replace(/<\//g, "<\\/"));
+  const html = renderHtml(fs.readFileSync(TEMPLATE, "utf8"), data);
 
   fs.mkdirSync(path.dirname(path.resolve(String(args.out))), { recursive: true });
   fs.writeFileSync(String(args.out), html);
@@ -176,4 +246,4 @@ function main() {
 
 if (require.main === module) process.exit(main());
 
-module.exports = { parseArgs, main };
+module.exports = { parseArgs, parseBuildNumber, escapeHtml, serialiseForScript, renderHtml, main };
